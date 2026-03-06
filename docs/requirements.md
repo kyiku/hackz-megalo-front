@@ -98,6 +98,22 @@
 | F-06 | 処理状態表示 | Must | 処理中→完了の状態をリアルタイムで表示 |
 | F-07 | コラージュ結果表示 | Must | カラー版の2x2コラージュを表示できる |
 | F-08 | カラー版ダウンロード | Should | QRコード経由でカラー版を再度ダウンロードできる |
+| F-09 | WebRTC映像配信 | Must | スマホカメラ映像をWebRTC P2PでPC画面にリアルタイム配信する |
+| F-10 | 撮影同期イベント送信 | Must | カウントダウン・シャッター等のイベントをWebSocket経由でPC側に同期する |
+| F-11 | 音声コマンド撮影 | Should | 「撮って！」等の音声コマンドでシャッターを切れる（Amazon Transcribe） |
+
+### 3.1b PC画面（MacBook プリクラモード）
+
+| ID | 機能 | 優先度 | 説明 |
+|----|------|--------|------|
+| PC-01 | プリクラモード表示 | Must | WebRTC接続確立後、スマホのカメラ映像をリアルタイム表示する |
+| PC-02 | BGM再生 | Must | プリクラモード中にループBGMを再生する |
+| PC-03 | カウントダウン音声（Polly） | Must | Amazon Pollyで生成したAI音声でカウントダウンを再生する |
+| PC-04 | シャッターSE | Must | 撮影タイミングでシャッター音を再生する |
+| PC-05 | 完了ファンファーレ | Must | 4枚撮影完了時・印刷完了時にSEを再生する |
+| PC-06 | ARフィルター表示 | Should | MediaPipe顔メッシュでリアルタイムARエフェクト（犬耳・猫耳・キラキラ等）を映像上に表示する |
+| PC-07 | 処理進捗表示 | Must | Step Functionsの処理進捗をリアルタイムで表示する |
+| PC-08 | リアルタイムダッシュボード | Should | AppSync GraphQLサブスクリプションで統計をリアルタイム更新する |
 
 ### 3.2 フィルター処理
 
@@ -141,7 +157,8 @@
 | IP-02b | AIスタイル変換 | Should | Stability AI Style Transferで画風変換（4枚並列） |
 | IP-03 | コラージュ生成 | Must | 4枚を2x2グリッドに配置してコラージュ画像を生成 |
 | IP-04 | キャプション生成 | Should | Amazon Bedrock (Claude) で面白いキャプションを自動生成 |
-| IP-05 | フレーム合成 | Should | プリクラ風のフレーム・装飾をオーバーレイ |
+| IP-04b | 感情分析 | Should | Amazon Comprehendでキャプションの感情を分析し、感情に応じたフレームデザインを自動選択 |
+| IP-05 | フレーム合成 | Should | プリクラ風のフレーム・装飾をオーバーレイ（感情分析結果に連動） |
 | IP-06 | ディザリング | Must | カラーコラージュをレシート印刷用の白黒2値画像に変換 |
 | IP-07 | QRコード埋め込み | Must | カラー版DL用のQRコードを印刷画像に埋め込む |
 
@@ -149,20 +166,24 @@
 
 | ID | 機能 | 優先度 | 説明 |
 |----|------|--------|------|
-| P-01 | 印刷キュー | Must | SQSから印刷ジョブを取得して順次印刷 |
+| P-01 | IoT Core印刷ジョブ受信 | Must | AWS IoT Core（MQTT）経由で印刷ジョブを受信する |
+| P-01b | SQSフォールバック | Should | IoT Core障害時にSQSポーリングにフォールバック |
 | P-02 | コラージュ印刷 | Must | 白黒2値の2x2コラージュをレシートプリンターで印刷 |
 | P-03 | 自動カット | Must | 印刷後にレシートを自動カット |
 | P-04 | QRコード印刷 | Must | カラー版DL用QRコードをレシートに印刷 |
 | P-05 | エラーハンドリング | Should | 紙切れ・接続エラー時の処理 |
+| P-06 | SNS印刷完了通知 | Should | Amazon SNS経由で印刷完了イベントを配信する |
 
 ### 3.5 モニタリングダッシュボード（MacBook表示用）
 
 | ID | 機能 | 優先度 | 説明 |
 |----|------|--------|------|
-| M-01 | 撮影数カウント | Should | 本日の総撮影数をリアルタイム表示 |
+| M-01 | 撮影数カウント | Should | DynamoDB Streams + Lambda経由でリアルタイム更新 |
 | M-02 | フィルターランキング | Nice | 人気フィルターの使用割合を表示 |
 | M-03 | 処理時間表示 | Should | 平均処理時間をリアルタイム表示 |
-| M-04 | X-Rayトレース | Nice | 写真1セットの処理フロー全体をトレース可視化 |
+| M-04 | X-Ray ServiceLens | Nice | マイクロサービスマップを可視化。処理フロー全体のトレース表示 |
+| M-05 | CloudWatch Synthetics | Nice | カナリアによる外形監視。サービス死活状態をダッシュボードに表示 |
+| M-06 | AppSync リアルタイム統計 | Should | GraphQLサブスクリプションで統計情報をリアルタイムプッシュ更新 |
 
 ### 3.6 QRコード表示画面（MacBook用）
 
@@ -217,85 +238,110 @@
 
 ### 5.1 全体構成図
 
+> AWSサービス19個を駆使した「あえてオーバーアーキテクチャ」な構成
+
 ```
-                            ┌──────────────────────────────────────────┐
-                            │              AWS Cloud                    │
-                            │                                          │
- [スマホ]                   │  ┌─────────┐     ┌──────────────────┐   │
-    │                       │  │ Amplify  │     │   CloudFront     │   │
-    │── HTTPS ─────────────────│ Hosting  │     │   + S3 (結果DL)  │   │
-    │                       │  └─────────┘     └──────────────────┘   │
-    │                       │                                          │
-    │── Presigned URL ─────────── S3 (画像バケット) ──┐               │
-    │   (4枚アップロード)   │                         │               │
-    │                       │                         │               │
-    │── WebSocket ─────────────── API Gateway ────┐   │               │
-    │                       │    (WebSocket)      │   │               │
-    │                       │                     ▼   ▼               │
-    │                       │              ┌──────────────────┐       │
-    │                       │              │  Step Functions   │       │
-    │                       │              │  (処理パイプライン) │       │
-    │                       │              │                   │       │
-    │                       │              │ 1. Rekognition    │       │
-    │                       │              │    (顔検出)       │       │
-    │                       │              │ 2. Pillow or      │       │
-    │                       │              │    Stability AI   │       │
-    │                       │              │    (フィルター)    │       │
-    │                       │              │ 3. コラージュ生成  │       │
-    │                       │              │ 4. Bedrock        │       │
-    │                       │              │    (キャプション)  │       │
-    │                       │              │ 5. ディザリング    │       │
-    │                       │              │    + QR埋め込み   │       │
-    │                       │              └────────┬─────────┘       │
-    │                       │                       │                  │
-    │                       │              ┌────────┴────────┐        │
-    │                       │              │    DynamoDB     │        │
-    │                       │              │  (メタデータ)    │        │
-    │                       │              └────────┬────────┘        │
-    │                       │                       │                  │
-    │                       │              ┌────────┴────────┐        │
-    │                       │              │      SQS        │        │
-    │                       │              │  (印刷キュー)    │        │
-    │                       │              └────────┬────────┘        │
-    │                       │                       │                  │
-    │                       │    CloudWatch      X-Ray                 │
-    │                       └───────────────────────┼──────────────────┘
-    │                                               │
-    │                                               ▼
-    │                                      ┌──────────────┐
-    │                                      │   MacBook    │
-    │                                      │              │
-    │                                      │ SQSポーリング │
-    │                                      │      ↓       │
-    │                                      │ プリンター制御 │
-    │                                      │      ↓       │
-    │                                      │  🖨️ 印刷     │
-    │                                      │              │
-    │                                      │ ダッシュボード │
-    │                                      └──────────────┘
+                        ┌──────────────────────────────────────────────────────────┐
+                        │                       AWS Cloud                           │
+                        │                                                          │
+ [スマホ]               │  ┌─────────┐  ┌────────┐  ┌──────────────────────┐     │
+    │                   │  │  WAF    │──│Amplify │  │ CloudFront           │     │
+    │── HTTPS ─────────────│         │  │Hosting │  │ + Lambda@Edge        │     │
+    │                   │  └─────────┘  └────────┘  │ (デバイス最適化)      │     │
+    │                   │                           └──────────────────────┘     │
+    │                   │                                                        │
+    │── Presigned URL ─────── S3 ──→ EventBridge ──→ Step Functions              │
+    │   (4枚アップ)     │             (イベント駆動)     │                        │
+    │                   │                               │                        │
+    │── WebSocket ─────────── API Gateway ──────┐      │                        │
+    │   + WebRTC SDP    │    (REST+WS+Signal)    │      │                        │
+    │                   │                        │      ▼                        │
+    │                   │                 ┌──────┴──────────────────┐            │
+    │ ═══ WebRTC P2P ════════════════[PC] │     Step Functions      │            │
+    │  (映像ストリーム)  │                 │  1. Rekognition (顔検出) │            │
+    │                   │                 │  2. Pillow / Stability  │            │
+    │                   │                 │     AI (フィルター)      │            │
+    │                   │                 │  3. コラージュ生成       │            │
+    │                   │                 │  4. Bedrock Claude      │            │
+    │                   │                 │     (キャプション)       │            │
+    │                   │                 │  5. Comprehend          │            │
+    │                   │                 │     (感情分析→フレーム)  │            │
+    │                   │                 │  6. ディザリング+QR     │            │
+    │                   │                 └──────┬─────────────────┘            │
+    │                   │                        │                              │
+    │                   │           ┌────────────┼────────────┐                │
+    │                   │           ▼            ▼            ▼                │
+    │                   │      DynamoDB     IoT Core       Polly              │
+    │                   │           │       (MQTT)     (AI音声合成)            │
+    │                   │           │            │      「3...2...1」           │
+    │                   │    DynamoDB Streams    │                              │
+    │                   │           │            │      Transcribe             │
+    │                   │           ▼            │     (音声コマンド)            │
+    │                   │      AppSync          │                              │
+    │                   │     (GraphQL)     ┌───┘     SNS                     │
+    │                   │     サブスクリプション │       (印刷完了通知)            │
+    │                   │           │        │          │                      │
+    │                   │           ▼        ▼          ▼                      │
+    │                   │      ┌──────────────────────────────┐               │
+    │                   │      │    CloudWatch + X-Ray         │               │
+    │                   │      │    + ServiceLens + Synthetics  │               │
+    │                   │      └──────────────────────────────┘               │
+    │                   └──────────────────────┼───────────────────────────────┘
+    │                                          │
+    │                                          ▼
+    │                                 ┌────────────────┐
+    │                                 │    MacBook      │
+    │                                 │                 │
+    │                                 │ WebRTC映像受信   │
+    │                                 │ MediaPipe AR    │
+    │                                 │ Polly音声再生   │
+    │                                 │ Web Audio SE    │
+    │                                 │       ↓         │
+    │                                 │ IoT Core MQTT   │
+    │                                 │  印刷ジョブ受信  │
+    │                                 │       ↓         │
+    │                                 │  🖨️ 印刷        │
+    │                                 │                 │
+    │                                 │ AppSync Dashboard│
+    │                                 └────────────────┘
 ```
 
 ### 5.2 コンポーネント一覧
 
 | コンポーネント | 技術 | 役割 |
 |---------------|------|------|
-| フロントエンド | Next.js + React + TypeScript | スマホ撮影画面・結果表示 |
+| フロントエンド | Next.js + React + TypeScript | スマホ撮影・PC プリクラモード画面 |
 | ホスティング | AWS Amplify Hosting | フロントエンドのデプロイ |
-| API | API Gateway (REST + WebSocket) | Presigned URL発行・リアルタイム通知 |
+| セキュリティ | AWS WAF | API Gateway前段のWebアプリケーションファイアウォール |
+| API (REST/WS) | API Gateway (REST + WebSocket) | Presigned URL発行・リアルタイム通知・WebRTCシグナリング |
+| API (GraphQL) | AWS AppSync | GraphQLサブスクリプションでリアルタイムダッシュボード |
 | コンピュート | AWS Lambda (Python 3.12) | 画像処理の各ステップ |
+| エッジコンピュート | Lambda@Edge | CloudFront連携。カラー版DL時のデバイス最適化リサイズ |
 | オーケストレーション | AWS Step Functions | 処理パイプラインの制御 |
+| イベントルーティング | Amazon EventBridge | S3アップロードイベント→Step Functions起動 |
+| リアルタイム映像 | WebRTC P2P | スマホカメラ映像をPCにリアルタイム配信 |
+| AR表示 | MediaPipe Face Mesh | PC画面上のWebRTCストリームにリアルタイムARエフェクト |
 | 顔検出 | Amazon Rekognition | 写真内の顔位置を検出 |
 | キャプション生成 | Amazon Bedrock (Claude) | 面白いキャプションを自動生成 |
+| 感情分析 | Amazon Comprehend | キャプション感情分析→フレームデザイン自動選択 |
+| AI音声合成 | Amazon Polly | カウントダウン「3...2...1...はいチーズ！」をAI音声生成 |
+| 音声認識 | Amazon Transcribe | 音声コマンド「撮って！」でシャッター |
 | 簡易フィルター | Lambda + Pillow | 美肌・モノクロ・セピア等の画像フィルター |
 | AIスタイル変換 | Bedrock Stability AI Style Transfer | アニメ風・ポップアート風等のAI画風変換 |
 | 画像処理 | Lambda + Pillow | コラージュ生成・ディザリング・QR埋め込み |
 | ストレージ | Amazon S3 | 元画像・処理済み画像の保存 |
 | データベース | Amazon DynamoDB | 撮影メタデータの保存 |
+| イベントソーシング | DynamoDB Streams + Lambda | セッション完了→リアルタイム統計更新 |
 | CDN | Amazon CloudFront | カラー版ダウンロードページ配信 |
-| メッセージキュー | Amazon SQS | 印刷ジョブキュー |
-| モニタリング | CloudWatch + X-Ray | メトリクス表示・トレーシング |
+| IoT | AWS IoT Core | MQTTでプリンターへ印刷ジョブ送信（プリンター=IoTデバイス） |
+| メッセージキュー | Amazon SQS | IoT Coreフォールバック用印刷ジョブキュー |
+| 通知 | Amazon SNS | 印刷完了イベントのファンアウト配信 |
+| モニタリング | CloudWatch + X-Ray + ServiceLens | メトリクス・トレーシング・マイクロサービスマップ |
+| 外形監視 | CloudWatch Synthetics | カナリアによるサービス死活監視 |
+| 音声演出 | Web Audio API + HTML Audio | PC側BGM・SE再生 |
 | ローカル印刷 | Python + python-escpos | レシートプリンター制御 |
 | コンテナ | Docker + docker-compose | ローカルサービスのコンテナ化 |
+| IaC | AWS CDK | 全インフラをコードで定義 |
 
 ---
 
@@ -648,16 +694,26 @@ receipt-purikura-images/
        │
        ▼
 ┌──────────────┐
+│ Step 4b      │  Amazon Comprehend
+│ 感情分析     │  → キャプションの感情を分析
+│              │  → 感情に応じたフレームデザイン自動選択
+│              │  → (POSITIVE→明るいフレーム, MIXED→ポップフレーム等)
+└──────┬───────┘
+       │
+       ▼
+┌──────────────┐
 │ Step 5       │  Lambda + Pillow
-│ 印刷用画像   │  → ディザリング（白黒2値化）
-│ 生成         │  → QRコード埋め込み
+│ 印刷用画像   │  → 感情連動フレーム合成
+│ 生成         │  → ディザリング（白黒2値化）
+│              │  → QRコード埋め込み
 │              │  → レシートレイアウト生成
 └──────┬───────┘
        │
        ├──→ S3に保存（カラー版コラージュ + 印刷用画像）
-       ├──→ DynamoDBにメタデータ書き込み
+       ├──→ DynamoDBにメタデータ書き込み（→ DynamoDB Streams → AppSync）
        ├──→ WebSocketでクライアントに完了通知
-       └──→ SQSに印刷ジョブ送信
+       ├──→ EventBridge → SNS（印刷完了通知ファンアウト）
+       └──→ IoT Core MQTT で印刷ジョブ送信（フォールバック: SQS）
 ```
 
 ### 9.2 フィルター処理の実装方針
@@ -756,62 +812,80 @@ MacBook上でDockerコンテナとして動作する印刷制御サービス。
 
 ## 11. 技術スタック一覧
 
+> **AWSサービス数: 19個** — 「レシートにプリクラを印刷するためだけに、ここまでやるのか」
+
 | レイヤー | 技術 |
 |----------|------|
 | フロントエンド | Next.js, React, TypeScript |
 | ホスティング | AWS Amplify Hosting |
-| API | API Gateway (REST + WebSocket) |
+| セキュリティ | **AWS WAF**（API Gateway前段に配置） |
+| API (REST/WS) | API Gateway (REST + WebSocket + WebRTCシグナリング) |
+| API (GraphQL) | **AWS AppSync**（GraphQLサブスクリプションでリアルタイムダッシュボード） |
 | コンピュート | AWS Lambda (Python 3.12) |
+| エッジコンピュート | **Lambda@Edge**（CloudFront連携。カラー版DL時のデバイス最適化リサイズ） |
 | オーケストレーション | AWS Step Functions |
-| AI | Amazon Rekognition (顔検出), Amazon Bedrock Claude (キャプション), Bedrock Stability AI Style Transfer (画風変換) |
+| イベントルーティング | **Amazon EventBridge**（S3アップロード→Step Functions起動をイベント駆動で） |
+| リアルタイム映像 | **WebRTC P2P**（スマホ→PCの片方向映像ストリーム） |
+| AR | **MediaPipe Face Mesh**（PC画面上のWebRTCストリームにリアルタイムARフィルター） |
+| AI - 顔検出 | Amazon Rekognition |
+| AI - キャプション | Amazon Bedrock Claude |
+| AI - 画風変換 | Bedrock Stability AI Style Transfer |
+| AI - 音声合成 | **Amazon Polly**（カウントダウン音声「3...2...1...はいチーズ！」をAI生成） |
+| AI - 音声認識 | **Amazon Transcribe**（音声コマンド「撮って！」でシャッター） |
+| AI - 感情分析 | **Amazon Comprehend**（キャプション感情分析→フレームデザイン自動選択） |
 | 画像処理 | Pillow, qrcode (Python) |
 | ストレージ | Amazon S3 |
 | データベース | Amazon DynamoDB |
+| イベントソーシング | **DynamoDB Streams + Lambda**（セッション完了→リアルタイム統計更新） |
 | CDN | Amazon CloudFront |
-| メッセージキュー | Amazon SQS |
-| モニタリング | Amazon CloudWatch, AWS X-Ray |
+| メッセージキュー | Amazon SQS（IoT Coreフォールバック用） |
+| IoT | **AWS IoT Core**（MQTT経由でプリンターへ印刷ジョブ送信。プリンター=IoTデバイス） |
+| 通知 | **Amazon SNS**（印刷完了イベントのファンアウト配信） |
+| モニタリング | Amazon CloudWatch + AWS X-Ray + **ServiceLens** |
+| 外形監視 | **Amazon CloudWatch Synthetics**（カナリアによるサービス死活監視） |
+| 音声演出 | Web Audio API + HTML Audio（BGM・SE再生） |
 | ローカル印刷 | Python + python-escpos + Pillow |
 | コンテナ | Docker, docker-compose |
-| IaC | AWS CDK or SAM (要検討) |
+| IaC | **AWS CDK**（全インフラをコードで定義） |
 
 ---
 
 ## 12. 開発スケジュール（14日間）
 
-### Phase 1: 基盤構築（Day 1-4）
+### Phase 1: 基盤構築 + WebRTC（Day 1-4）
 
 | Day | タスク | 担当 |
 |-----|--------|------|
-| 1 | プロジェクト初期セットアップ、AWS環境構築 | 全員 |
+| 1 | プロジェクト初期セットアップ、AWS CDK環境構築、WAF設定 | 全員 |
 | 2 | フロントエンド骨組み（フィルター選択画面） | A |
-| 2 | S3 + Presigned URL + API Gateway設定 | B |
+| 2 | S3 + Presigned URL + API Gateway + EventBridge設定 | B |
 | 3 | フロントエンド（4枚連続撮影画面 + カウントダウン） | A |
-| 3 | WebSocket API構築 | B |
-| 4 | フロントエンド（プレビュー・処理中・結果画面） | A |
-| 4 | Step Functions基本フロー構築 | B |
+| 3 | WebSocket API + WebRTCシグナリングLambda構築 | B |
+| 4 | スマホ側WebRTCクライアント + PC側プリクラモード画面 | A |
+| 4 | Step Functions基本フロー + Pollyカウントダウン音声生成 | B |
 
-### Phase 2: 画像処理 + 印刷（Day 5-9）
-
-| Day | タスク | 担当 |
-|-----|--------|------|
-| 5 | Rekognition顔検出Lambda実装 | B |
-| 5 | プリンター接続テスト + python-escpos検証 | A |
-| 6 | フィルター処理Lambda実装（美肌・モノクロ・セピア） | B |
-| 6 | ディザリングアルゴリズム検証・実装 | A |
-| 7 | コラージュ生成Lambda実装（2x2グリッド） | B |
-| 7 | SQS + ローカル印刷サービス実装 | A |
-| 8 | Bedrockキャプション生成 + Step Functions全結合 | B |
-| 8 | レシートレイアウト実装（コラージュ + QR） | A |
-| 9 | E2E結合テスト（撮影→処理→印刷） | 全員 |
-
-### Phase 3: 仕上げ（Day 10-14）
+### Phase 2: 画像処理 + 印刷 + AI（Day 5-9）
 
 | Day | タスク | 担当 |
 |-----|--------|------|
-| 10 | CloudFront + カラー版DLページ | A |
-| 10 | CloudWatch ダッシュボード構築 | B |
-| 11 | X-Rayトレーシング設定 | B |
-| 11 | QRコード表示画面（MacBook用） | A |
+| 5 | Rekognition顔検出Lambda + Comprehend感情分析Lambda | B |
+| 5 | プリンター接続テスト + IoT Core MQTT設定 | A |
+| 6 | フィルター処理Lambda（美肌・モノクロ・セピア） | B |
+| 6 | ディザリング検証 + 感情連動フレーム実装 | A |
+| 7 | コラージュ生成Lambda + MediaPipe ARフィルター（PC） | B |
+| 7 | IoT Core印刷サービス + SNS通知設定 | A |
+| 8 | Bedrockキャプション + Transcribe音声コマンド + Step Functions全結合 | B |
+| 8 | レシートレイアウト + PC音声演出（BGM+SE+Polly） | A |
+| 9 | E2E結合テスト（撮影→WebRTC→処理→音声→印刷） | 全員 |
+
+### Phase 3: 仕上げ + モニタリング全盛り（Day 10-14）
+
+| Day | タスク | 担当 |
+|-----|--------|------|
+| 10 | CloudFront + Lambda@Edge + カラー版DLページ | A |
+| 10 | AppSync + DynamoDB Streams + リアルタイムダッシュボード | B |
+| 11 | X-Ray ServiceLens + CloudWatch Synthetics外形監視 | B |
+| 11 | QRコード表示画面（MacBook用）+ プリクラモードUI仕上げ | A |
 | 12 | 負荷テスト（50人同時接続） | 全員 |
 | 13 | バグ修正・UI調整・デモリハーサル | 全員 |
 | 14 | 最終テスト・デモ準備・予備日 | 全員 |
@@ -827,28 +901,41 @@ MacBook上でDockerコンテナとして動作する印刷制御サービス。
 | Stability AI Style Transferのコスト | 低 | ~$0.24/セッション。ハッカソン期間中は許容範囲 |
 | プリンターの画質が粗い | 中 | ディザリングアルゴリズムの事前検証で最適化 |
 | 4枚撮影のUXが悪い | 中 | カウントダウンUI・撮り直し機能で体験を向上 |
-| **iOS Safariのカメラ挙動** | **高** | getUserMedia の機種差が大きい。**Day 2-3で実機検証必須** |
+| **iOS SafariのWebRTC + カメラ挙動** | **高** | getUserMedia + WebRTC の機種差が大きい。**Day 2-3で実機検証必須**。adapter.jsポリフィル使用 |
+| **WebRTC接続が会場ネットワークで確立不可** | **高** | フォールバック: WebSocket経由のフレーム送信（~500ms遅延） |
 | **WebSocket構築の工数オーバー** | **高** | 詰まったら即ポーリング（5秒間隔GET）に切り替える |
-| **IaC構築の工数オーバー** | **高** | マネジメントコンソール手動構築で進め、余裕があればコード化 |
+| **19サービス全部の実装が間に合わない** | **高** | 段階的リリース（Stage 1-6）に従い、フォールバック戦略で各機能を軽量化 |
+| **IaC (CDK) 構築の工数オーバー** | **高** | 手動構築で進め、余裕があればコード化 |
+| ブラウザAutoplay Policy | 中 | PC側で「開始」ボタンクリックによるユーザーインタラクション取得 |
+| IoT Core MQTT接続の安定性 | 中 | SQSポーリングをフォールバックとして常に準備 |
+| MediaPipe ARのパフォーマンス | 中 | PC側のGPU性能に依存。重い場合はAR無しに切り替え |
+| Polly音声生成のレイテンシ | 低 | カウントダウン音声は事前生成してS3にキャッシュ |
 | 会場WiFiの速度不足 | 中 | 画像を圧縮してアップロード。モバイルテザリングも準備 |
 | Lambda コールドスタート | 低 | Provisioned Concurrencyの設定 |
 | 50人同時接続時の遅延 | 中 | SQS + Step Functionsで非同期処理。印刷は直列だが処理は並列 |
 | プリンター紙切れ | 低 | 予備ロール紙を十分に準備 |
-| 14日間で全機能の実装が間に合わない | 高 | 優先度（Must > Should > Nice）に従い段階的に実装 |
 | 4枚アップロードの通信量 | 中 | 画像をリサイズ・圧縮（最大1280px、JPEG品質80%） |
+| AWSコスト増加 | 中 | 追加サービス（Polly, Transcribe, Comprehend等）はセッション単価が低い。ハッカソン期間中は許容 |
 
 ### フォールバック戦略（詰まったときの代替手段）
 
 | 機能 | 正規実装 | フォールバック |
 |------|---------|--------------|
-| リアルタイム通知 | WebSocket API | **ポーリング（5秒間隔GET）** で代替。工数 3日 → 0.5日 |
-| IaC | CDK/SAM | **手動構築 + 設定値をREADMEに記録**。工数 3日 → 0 |
-| AIスタイル変換 | Stability AI Style Transfer | **簡易フィルターのみ**で運用。AI無しでもデモは成立 |
-| 顔検出クロップ | Rekognition | **中央クロップ**で代替。精度は落ちるが動く |
-| AIキャプション | Bedrock Claude | **固定テンプレート文**（「最高の思い出をレシートに！」等） |
-| コンテナ化 | Docker + docker-compose | **直接Python実行**。デモなら十分 |
-| CloudWatch + X-Ray | フル構築 | **CloudWatch Logsだけ**。ダッシュボードは手動構築 |
-| 負荷テスト | 50人同時 | **5-10人でのテスト**に縮小。当日問題が出たら対応 |
+| リアルタイム映像 | WebRTC P2P | **WebSocket経由のフレーム送信**（~500ms遅延） |
+| リアルタイム通知 | WebSocket API | **ポーリング（5秒間隔GET）** で代替 |
+| IaC | AWS CDK | **手動構築 + 設定値をREADMEに記録** |
+| AIスタイル変換 | Stability AI Style Transfer | **簡易フィルターのみ**で運用 |
+| 顔検出クロップ | Rekognition | **中央クロップ**で代替 |
+| AIキャプション | Bedrock Claude | **固定テンプレート文** |
+| 感情分析 | Comprehend | **ランダムフレーム選択**で代替 |
+| AI音声合成 | Amazon Polly | **Web Speech Synthesis API**（ブラウザ内蔵TTS） |
+| 音声コマンド | Amazon Transcribe | **ボタンのみ**で操作 |
+| ARフィルター | MediaPipe | **ARなし**。素のカメラ映像のみ表示 |
+| IoT印刷 | IoT Core MQTT | **SQSポーリング**で代替 |
+| リアルタイムダッシュボード | AppSync + DynamoDB Streams | **手動リロード**で統計更新 |
+| 外形監視 | CloudWatch Synthetics | **手動ヘルスチェック** |
+| コンテナ化 | Docker + docker-compose | **直接Python実行** |
+| 負荷テスト | 50人同時 | **5-10人でのテスト**に縮小 |
 
 ---
 
@@ -869,11 +956,13 @@ MacBook上でDockerコンテナとして動作する印刷制御サービス。
 
 | 段階 | 機能範囲 | 目標Day |
 |------|----------|---------|
-| Stage 1 | 4枚撮影 → S3アップロード → コラージュ生成 → ディザリング → 印刷 | Day 7 |
-| Stage 2 | 簡易フィルター + キャプション生成を追加 | Day 9 |
-| Stage 2.5 | AIスタイル変換（Stability AI）を追加 | Day 10 |
-| Stage 3 | WebSocket通知 + カラー版DL + QR表示画面 | Day 11 |
-| Stage 4 | モニタリング + 負荷テスト + UI仕上げ | Day 14 |
+| Stage 1 | 4枚撮影 → S3アップロード → コラージュ生成 → ディザリング → 印刷 | Day 5 |
+| Stage 2 | WebRTC映像連携 + PC側プリクラモード + Polly音声演出 | Day 7 |
+| Stage 3 | 簡易フィルター + キャプション + Comprehend感情分析 | Day 9 |
+| Stage 3.5 | AIスタイル変換 + MediaPipe AR + Transcribe音声コマンド | Day 10 |
+| Stage 4 | IoT Core印刷 + EventBridge + SNS + CloudFront + Lambda@Edge | Day 11 |
+| Stage 5 | AppSync + DynamoDB Streams + ServiceLens + Synthetics + CDK | Day 13 |
+| Stage 6 | 負荷テスト + UI仕上げ + デモリハーサル | Day 14 |
 
 ---
 
@@ -897,13 +986,24 @@ MacBook上でDockerコンテナとして動作する印刷制御サービス。
 
 1. 審査員にMacBook画面のQRコードをスマホでスキャンしてもらう
 2. フィルター選択画面 → 「美肌」を選んでスタート
-3. カウントダウン付きで4枚を連続撮影（ポーズを変えながら）
-4. プレビューで4枚を確認 → 「OK！印刷する！」をタップ
-5. スマホに「プリクラ作成中...」の表示 → 数秒後にカラー版コラージュが表示される
-6. 同時にレシートプリンターから白黒レトロプリクラが印刷される
-7. レシートのQRコードをスキャン → カラー版の高解像度コラージュがDLできる
-8. MacBook画面のダッシュボードで処理フローとメトリクスをリアルタイム表示
-9. 「これ全部レシートにプリクラを印刷するためだけのシステムです」と説明
+3. **MacBook画面が「プリクラモード」に切り替わり、BGMが流れ始める**
+4. **スマホのカメラ映像がMacBook画面にリアルタイムで表示される（WebRTC）**
+5. **MacBook画面にARフィルター（犬耳等）がリアルタイムで表示される（MediaPipe）**
+6. **Amazon Pollyの合成音声「3...2...1...はいチーズ！」がMacBookスピーカーから流れる**
+7. カウントダウン付きで4枚を連続撮影（シャッターSEもMacBookから再生）
+8. （デモ：「撮って！」と声で言うと音声認識でシャッターが切れる / Amazon Transcribe）
+9. プレビューで4枚を確認 → 「OK！印刷する！」をタップ
+10. スマホに「プリクラ作成中...」の表示（WebSocket通知でリアルタイム進捗）
+11. **Amazon ComprehendがAIキャプションの感情を分析し、感情に応じたフレームが自動選択される**
+12. 数秒後にカラー版コラージュが表示される
+13. **IoT Core MQTT経由で印刷ジョブが送信され、レシートプリンターから白黒レトロプリクラが印刷される**
+14. **Amazon SNS経由で印刷完了がファンアウト通知される**
+15. レシートのQRコードをスキャン → **Lambda@Edgeでデバイス最適化された**カラー版コラージュがDL
+16. MacBook画面が**AppSync GraphQLサブスクリプションでリアルタイム更新されるダッシュボード**に切り替わる
+17. **X-Ray ServiceLensのマイクロサービスマップ**で全体の処理フローを可視化
+18. **CloudWatch Syntheticsのカナリア**でサービスの死活状態を表示
+19. **「これ全部、レシートにプリクラを印刷するためだけの、AWSサービス19個構成のシステムです」と説明**
+20. 構成図を見せて「ここまでやるのか」の驚きを狙う
 
 ---
 
@@ -917,9 +1017,24 @@ MacBook上でDockerコンテナとして動作する印刷制御サービス。
 | Presigned URL | 一時的にS3への直接アップロードを許可する署名付きURL。サーバーを経由せず直接S3にアップロードできる |
 | Floyd-Steinberg | 最も一般的なディザリングアルゴリズム。誤差を周囲のピクセルに拡散させて自然な階調を表現する |
 | WebSocket | サーバーからクライアントにリアルタイムでデータを送信できる双方向通信プロトコル |
+| WebRTC | ブラウザ間でリアルタイムの音声・映像・データ通信を行うP2P技術。本プロジェクトではスマホ→PCの映像ストリーミングに使用 |
+| SDP | Session Description Protocol。WebRTC接続確立時に交換されるメディア情報の記述プロトコル |
+| STUN/TURN | WebRTCのP2P接続確立を補助するサーバー。STUNはNAT越え、TURNはリレーサーバー |
+| MediaPipe | Googleが提供するMLフレームワーク。Face Meshで顔の468点のランドマークをリアルタイム検出し、ARフィルターを実現 |
+| MQTT | IoTデバイス向けの軽量メッセージングプロトコル。AWS IoT Coreで使用。パブリッシュ/サブスクライブモデル |
+| EventBridge | AWSのサーバーレスイベントバス。イベント駆動アーキテクチャの中核 |
+| AppSync | AWSのマネージドGraphQLサービス。サブスクリプションでリアルタイムデータ同期が可能 |
+| DynamoDB Streams | DynamoDBテーブルへの変更をリアルタイムでキャプチャするイベントソーシング機能 |
+| Lambda@Edge | CloudFrontのエッジロケーションでLambda関数を実行する機能。リクエスト/レスポンスをエッジで加工 |
+| Amazon Polly | テキストをリアルな音声に変換するAI音声合成サービス |
+| Amazon Transcribe | 音声をテキストに変換する自動音声認識（ASR）サービス |
+| Amazon Comprehend | テキストの感情分析・エンティティ抽出等を行う自然言語処理サービス |
+| CloudWatch Synthetics | カナリアスクリプトによるWebアプリケーションの外形監視サービス |
+| ServiceLens | CloudWatch + X-Rayを統合し、マイクロサービスマップを可視化するサービス |
 | Step Functions | AWSのワークフローオーケストレーションサービス。複数のLambda関数を順番/並列に実行する |
 | SQS | AWSのメッセージキューサービス。非同期でジョブを受け渡す仕組み |
 | Pillow | Pythonの画像処理ライブラリ。フィルター適用、リサイズ、合成などの画像操作ができる |
+| AWS CDK | AWSのInfrastructure as Code（IaC）フレームワーク。TypeScriptやPythonでインフラを定義 |
 
 ---
 
@@ -943,3 +1058,4 @@ MacBook上でDockerコンテナとして動作する印刷制御サービス。
 | 2026-03-01 | 初版作成（AIスタイル変換モード） |
 | 2026-03-02 | v2: プリクラモードに統合。4枚連続撮影 + フィルター + 2x2コラージュ構成に変更 |
 | 2026-03-02 | v2.1: フィルターを2カテゴリに拡張。簡易フィルター(Pillow) + AIスタイル変換(Stability AI Style Transfer)の両方を提供 |
+| 2026-03-06 | v3: 「全部盛り」構成に刷新。WebRTC映像連携、PC側プリクラモード+音声演出、Polly/Transcribe/Comprehend/MediaPipe AR/IoT Core/EventBridge/AppSync/DynamoDB Streams/Lambda@Edge/SNS/WAF/CDK/ServiceLens/Synthetics追加。AWSサービス数19個構成に |
