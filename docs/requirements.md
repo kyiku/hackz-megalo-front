@@ -114,6 +114,7 @@
 | PC-06 | ARフィルター表示 | Should | MediaPipe顔メッシュでリアルタイムARエフェクト（犬耳・猫耳・キラキラ等）を映像上に表示する |
 | PC-07 | 処理進捗表示 | Must | Step Functionsの処理進捗をリアルタイムで表示する |
 | PC-08 | リアルタイムダッシュボード | Should | AppSync GraphQLサブスクリプションで統計をリアルタイム更新する |
+| PC-09 | **ニコニコ風AIやじコメント** | Should | 撮影中のカメラ映像をリアルタイム分析し、表情・ポーズ・人数に基づいたコメントをニコニコ動画風にPC画面上を流す。ハイブリッド方式（Rekognition高速レーン + Bedrock深いレーン）で生成 |
 
 ### 3.2 フィルター処理
 
@@ -880,8 +881,8 @@ MacBook上でDockerコンテナとして動作する印刷制御サービス。
 | イベントルーティング | **Amazon EventBridge**（S3アップロード→Step Functions起動をイベント駆動で） |
 | リアルタイム映像 | **WebRTC P2P**（スマホ→PCの片方向映像ストリーム） |
 | AR | **MediaPipe Face Mesh**（PC画面上のWebRTCストリームにリアルタイムARフィルター） |
-| AI - 顔検出 | Amazon Rekognition |
-| AI - キャプション | Amazon Bedrock Claude |
+| AI - 顔検出+感情検出 | Amazon Rekognition（DetectFaces Emotions属性でリアルタイム感情検出 → やじコメント高速レーン） |
+| AI - キャプション+やじ | Amazon Bedrock Claude（キャプション生成 + マルチモーダルやじコメント深いレーン） |
 | AI - 画風変換 | Bedrock Stability AI Style Transfer |
 | AI - 音声合成 | **Amazon Polly**（カウントダウン音声「3...2...1...はいチーズ！」をAI生成） |
 | AI - 音声認識 | **Amazon Transcribe**（音声コマンド「撮って！」でシャッター） |
@@ -1042,8 +1043,10 @@ MacBook上でDockerコンテナとして動作する印刷制御サービス。
 3. **MacBook画面が「プリクラモード」に切り替わり、BGMが流れ始める**
 4. **スマホのカメラ映像がMacBook画面にリアルタイムで表示される（WebRTC）**
 5. **MacBook画面にARフィルター（犬耳等）がリアルタイムで表示される（MediaPipe）**
-6. **Amazon Pollyの合成音声「3...2...1...はいチーズ！」がMacBookスピーカーから流れる**
-7. カウントダウン付きで4枚を連続撮影（シャッターSEもMacBookから再生）
+6. **ニコニコ動画風のAIやじコメントがPC画面を流れ始める**（「いい笑顔！」「テンション高いw」等）
+7. **Amazon Pollyの合成音声「3...2...1...はいチーズ！」がMacBookスピーカーから流れる**
+8. カウントダウン付きで4枚を連続撮影（シャッターSEもMacBookから再生）
+9. 撮影中もやじコメントが流れ続ける（「カメラこっちだよ！」「目つぶってるw」等、RekognitionとBedrock Haikuのハイブリッド分析）
 8. （デモ：「撮って！」と声で言うと音声認識でシャッターが切れる / Amazon Transcribe）
 9. プレビューで4枚を確認 → 「OK！印刷する！」をタップ
 10. スマホに「プリクラ作成中...」の表示（WebSocket通知でリアルタイム進捗）
@@ -1113,3 +1116,4 @@ MacBook上でDockerコンテナとして動作する印刷制御サービス。
 | 2026-03-02 | v2.1: フィルターを2カテゴリに拡張。簡易フィルター(Pillow) + AIスタイル変換(Stability AI Style Transfer)の両方を提供 |
 | 2026-03-06 | v3: 「全部盛り」構成に刷新。WebRTC映像連携、PC側プリクラモード+音声演出、Polly/Transcribe/Comprehend/MediaPipe AR/IoT Core/EventBridge/AppSync/DynamoDB Streams/Lambda@Edge/SNS/WAF/CDK/ServiceLens/Synthetics追加。AWSサービス数19個構成に |
 | 2026-03-06 | v3.1: パフォーマンス高速化。Step Functions Express Workflows、パイプライン超並列化、Lambda ARM64+10GB+Provisioned Concurrency+SnapStart、S3 Transfer Acceleration、ESC/POSラスター事前変換。簡易フィルター20秒→12秒、AIスタイル40秒→30秒に短縮 |
+| 2026-03-06 | v3.2: ニコニコ風AIやじコメント機能追加。撮影中にRekognition(高速レーン,2秒間隔)+Bedrock Haiku(深いレーン,5秒間隔)のハイブリッド方式でリアルタイムコメント生成。表情・ポーズ・人数を分析し、ミックストーン(応援+ツッコミ)のコメントをPC画面にニコニコ風で流す |
