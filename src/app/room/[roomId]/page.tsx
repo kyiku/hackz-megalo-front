@@ -13,30 +13,89 @@ type Props = {
   readonly params: Promise<{ roomId: string }>
 }
 
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? ''
+
 export default function RoomJoinPage({ params }: Props) {
   const { roomId } = use(params)
   if (!isValidRoomId(roomId)) notFound()
   const router = useRouter()
   const { joinRoom } = useRoomStore()
-  // TODO: バックエンド接続後にエラー/満員状態を設定
-  const [status] = useState<'connecting' | 'error' | 'full'>('connecting')
+  const [status, setStatus] = useState<'connecting' | 'joined' | 'error' | 'full'>('connecting')
 
   useEffect(() => {
-    // TODO: バックエンドに接続してルームの存在確認 + 空き確認
-    // 現在はデモ用に即参加
-    const timer = setTimeout(() => {
+    if (!WS_URL) {
       joinRoom(roomId, 'phone')
       router.replace('/filter')
-    }, 1000)
+      return
+    }
 
-    return () => clearTimeout(timer)
-  }, [roomId, joinRoom, router])
+    const ws = new WebSocket(WS_URL)
+
+    ws.addEventListener('open', () => {
+      ws.send(JSON.stringify({
+        action: 'join_room',
+        data: { roomId, role: 'phone' },
+      }))
+    })
+
+    ws.addEventListener('message', (event) => {
+      try {
+        const msg = JSON.parse(event.data as string) as {
+          type: string
+          data: { error?: string }
+        }
+
+        if (msg.type === 'room_full') {
+          setStatus('full')
+          ws.close()
+          return
+        }
+
+        if (msg.type === 'room_not_found') {
+          setStatus('error')
+          ws.close()
+          return
+        }
+
+        // 参加成功（明示的なレスポンスがなくてもエラーがなければ成功扱い）
+        joinRoom(roomId, 'phone')
+        setStatus('joined')
+        ws.close()
+        router.replace('/filter')
+      } catch (err) {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Failed to parse room join response:', err)
+        }
+      }
+    })
+
+    ws.addEventListener('error', () => {
+      setStatus('error')
+    })
+
+    // タイムアウト: 5秒以内に応答がなければそのまま参加
+    const timeout = setTimeout(() => {
+      if (status === 'connecting') {
+        joinRoom(roomId, 'phone')
+        ws.close()
+        router.replace('/filter')
+      }
+    }, 5000)
+
+    return () => {
+      clearTimeout(timeout)
+      ws.close()
+    }
+  }, [roomId, joinRoom, router, status])
 
   if (status === 'full') {
     return (
       <PageContainer className="flex flex-col items-center justify-center gap-4">
         <p className="receipt-text text-sm font-bold text-red">このルームは満員です</p>
         <p className="text-xs text-ink-light">1つのルームにつきスマホ1台まで</p>
+        <Button variant="secondary" size="sm" onClick={() => router.replace('/')}>
+          トップに戻る
+        </Button>
       </PageContainer>
     )
   }
@@ -44,7 +103,7 @@ export default function RoomJoinPage({ params }: Props) {
   if (status === 'error') {
     return (
       <PageContainer className="flex flex-col items-center justify-center gap-4">
-        <p className="receipt-text text-sm font-bold text-red">ルームが見つかりません</p>
+        <p className="receipt-text text-sm font-bold text-red">接続に失敗しました</p>
         <Button variant="secondary" size="sm" onClick={() => router.replace('/')}>
           トップに戻る
         </Button>

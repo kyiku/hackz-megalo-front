@@ -59,30 +59,34 @@ export function ProcessingView({ sessionId: routeSessionId }: ProcessingViewProp
     if (startedRef.current) return
     startedRef.current = true
 
+    const abortController = new AbortController()
+
     const run = async () => {
       try {
         if (!filter || photos.length === 0) {
-          // デモモード: バックエンド未接続時のフォールバック
           setProcessingStep('uploading')
           const steps = ['uploading', 'face-detection', 'filter-apply', 'collage-generate', 'print-prepare', 'complete'] as const
           for (let i = 0; i < steps.length; i++) {
+            if (abortController.signal.aborted) return
             await new Promise((r) => setTimeout(r, 1500))
             setProcessingStep(steps[i] ?? 'uploading')
           }
-          router.push(`/result/${routeSessionId}`)
+          if (!abortController.signal.aborted) {
+            router.push(`/result/${routeSessionId}`)
+          }
           return
         }
 
-        // 1. セッション作成
         setProcessingStep('uploading')
         const session = await createSession({
           filterType: filter.type,
           filter: toApiFilterName(filter.value),
           photoCount: photos.length,
         })
+
+        if (abortController.signal.aborted) return
         setCurrentSessionId(session.sessionId)
 
-        // 2. WebSocket接続 + subscribe
         if (WS_URL) {
           const ws = new WebSocket(WS_URL)
           wsRef.current = ws
@@ -98,13 +102,14 @@ export function ProcessingView({ sessionId: routeSessionId }: ProcessingViewProp
             try {
               const parsed = JSON.parse(e.data as string) as WsEvent
               handleWsEvent(parsed)
-            } catch {
-              // ignore
+            } catch (err) {
+              if (process.env.NODE_ENV === 'development') {
+                console.error('Failed to parse processing WS message:', err)
+              }
             }
           })
         }
 
-        // 3. 写真アップロード（並列）
         await Promise.all(
           session.uploadUrls.map((upload, i) => {
             const photo = photos[i]
@@ -114,10 +119,12 @@ export function ProcessingView({ sessionId: routeSessionId }: ProcessingViewProp
           }),
         )
 
-        // 4. 処理開始
+        if (abortController.signal.aborted) return
+
         setProcessingStep('face-detection')
         await startProcessing(session.sessionId)
       } catch (err) {
+        if (abortController.signal.aborted) return
         const message = err instanceof Error ? err.message : '処理中にエラーが発生しました'
         setError(message)
       }
@@ -126,6 +133,7 @@ export function ProcessingView({ sessionId: routeSessionId }: ProcessingViewProp
     void run()
 
     return () => {
+      abortController.abort()
       wsRef.current?.close()
       wsRef.current = null
     }
