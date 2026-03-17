@@ -18,9 +18,12 @@ export function DownloadView({ sessionId }: DownloadViewProps) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    let cancelled = false
+
     const fetchSession = async () => {
       try {
         const session = await getSession(sessionId)
+        if (cancelled) return
         if (session.collageImageUrl) {
           setDownloadUrl(session.collageImageUrl)
         }
@@ -29,11 +32,17 @@ export function DownloadView({ sessionId }: DownloadViewProps) {
           console.error('Failed to fetch session for download:', err)
         }
       } finally {
-        setLoading(false)
+        if (!cancelled) {
+          setLoading(false)
+        }
       }
     }
 
     void fetchSession()
+
+    return () => {
+      cancelled = true
+    }
   }, [sessionId])
 
   return (

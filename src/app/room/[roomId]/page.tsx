@@ -2,7 +2,7 @@
 
 import { notFound } from 'next/navigation'
 import { useRouter } from 'next/navigation'
-import { use, useEffect, useState } from 'react'
+import { use, useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { PageContainer } from '@/components/ui/page-container'
@@ -13,7 +13,7 @@ type Props = {
   readonly params: Promise<{ roomId: string }>
 }
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? ''
+const WS_URL = (process.env.NEXT_PUBLIC_WS_URL ?? '').trim()
 
 export default function RoomJoinPage({ params }: Props) {
   const { roomId } = use(params)
@@ -21,6 +21,11 @@ export default function RoomJoinPage({ params }: Props) {
   const router = useRouter()
   const { joinRoom } = useRoomStore()
   const [status, setStatus] = useState<'connecting' | 'joined' | 'error' | 'full'>('connecting')
+  const statusRef = useRef(status)
+
+  useEffect(() => {
+    statusRef.current = status
+  }, [status])
 
   useEffect(() => {
     if (!WS_URL) {
@@ -57,7 +62,6 @@ export default function RoomJoinPage({ params }: Props) {
           return
         }
 
-        // 参加成功（明示的なレスポンスがなくてもエラーがなければ成功扱い）
         joinRoom(roomId, 'phone')
         setStatus('joined')
         ws.close()
@@ -73,9 +77,8 @@ export default function RoomJoinPage({ params }: Props) {
       setStatus('error')
     })
 
-    // タイムアウト: 5秒以内に応答がなければそのまま参加
     const timeout = setTimeout(() => {
-      if (status === 'connecting') {
+      if (statusRef.current === 'connecting') {
         joinRoom(roomId, 'phone')
         ws.close()
         router.replace('/filter')
@@ -86,7 +89,7 @@ export default function RoomJoinPage({ params }: Props) {
       clearTimeout(timeout)
       ws.close()
     }
-  }, [roomId, joinRoom, router, status])
+  }, [roomId, joinRoom, router])
 
   if (status === 'full') {
     return (

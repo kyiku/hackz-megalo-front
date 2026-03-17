@@ -24,9 +24,12 @@ export function ResultView({ sessionId }: ResultViewProps) {
   useEffect(() => {
     if (storeCollageUrl) return
 
+    let cancelled = false
+
     const fetchSession = async () => {
       try {
         const session = await getSession(sessionId)
+        if (cancelled) return
         if (session.collageImageUrl) {
           setCollageUrl(session.collageImageUrl)
         }
@@ -38,11 +41,17 @@ export function ResultView({ sessionId }: ResultViewProps) {
           console.error('Failed to fetch session result:', err)
         }
       } finally {
-        setLoading(false)
+        if (!cancelled) {
+          setLoading(false)
+        }
       }
     }
 
     void fetchSession()
+
+    return () => {
+      cancelled = true
+    }
   }, [sessionId, storeCollageUrl])
 
   return (
