@@ -1,13 +1,14 @@
 import { create } from 'zustand'
 
 const MUNBYN_VENDOR_ID = 0x1fc9
-const MUNBYN_PRODUCT_ID = 0x2016
-const PRINTER_WIDTH = 576 // 80mm printer, 576 dots
+const PRINTER_WIDTH = 576
 
 type PrinterState = {
   readonly device: USBDevice | null
   readonly isConnected: boolean
   readonly isPrinting: boolean
+  readonly lastError: string | null
+  readonly endpointNumber: number
 }
 
 type PrinterActions = {
@@ -17,29 +18,30 @@ type PrinterActions = {
 }
 
 function escposInit(): Uint8Array {
-  return new Uint8Array([0x1b, 0x40]) // ESC @
+  return new Uint8Array([0x1b, 0x40])
 }
 
 function escposCut(): Uint8Array {
-  return new Uint8Array([0x1d, 0x56, 0x41, 0x03]) // GS V A 3
+  return new Uint8Array([0x1d, 0x56, 0x41, 0x03])
 }
 
 function escposFeedLines(n: number): Uint8Array {
-  return new Uint8Array([0x1b, 0x64, n]) // ESC d n
+  return new Uint8Array([0x1b, 0x64, n])
 }
 
-function escposBitmapLine(lineData: Uint8Array, width: number): Uint8Array {
+// ESC/POS raster bit image (GS v 0) - more widely supported than ESC *
+function escposRasterImage(data: Uint8Array, width: number, height: number): Uint8Array {
   const bytesPerLine = Math.ceil(width / 8)
   const header = new Uint8Array([
-    0x1b, 0x2a, 33, // ESC * 33 (24-dot double-density)
+    0x1d, 0x76, 0x30, 0x00, // GS v 0 (normal mode)
     bytesPerLine & 0xff,
     (bytesPerLine >> 8) & 0xff,
+    height & 0xff,
+    (height >> 8) & 0xff,
   ])
-  const lineFeed = new Uint8Array([0x0a])
-  const result = new Uint8Array(header.length + lineData.length + lineFeed.length)
+  const result = new Uint8Array(header.length + data.length)
   result.set(header, 0)
-  result.set(lineData, header.length)
-  result.set(lineFeed, header.length + lineData.length)
+  result.set(data, header.length)
   return result
 }
 
@@ -63,7 +65,6 @@ async function imageUrlToMonoBitmap(imageUrl: string): Promise<{ data: Uint8Arra
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
 
-  // Floyd-Steinberg dithering to 1-bit
   const pixels = new Float32Array(imageData.data.length / 4)
   for (let i = 0; i < pixels.length; i++) {
     const r = imageData.data[i * 4] ?? 0
@@ -74,6 +75,8 @@ async function imageUrlToMonoBitmap(imageUrl: string): Promise<{ data: Uint8Arra
 
   const w = canvas.width
   const h = canvas.height
+
+  // Floyd-Steinberg dithering
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const idx = y * w + x
@@ -106,11 +109,13 @@ export const usePrinterStore = create<PrinterState & PrinterActions>()((set, get
   device: null,
   isConnected: false,
   isPrinting: false,
+  lastError: null,
+  endpointNumber: 1,
 
   connect: async () => {
     try {
       const device = await navigator.usb.requestDevice({
-        filters: [{ vendorId: MUNBYN_VENDOR_ID, productId: MUNBYN_PRODUCT_ID }],
+        filters: [{ vendorId: MUNBYN_VENDOR_ID }],
       })
 
       await device.open()
@@ -119,9 +124,19 @@ export const usePrinterStore = create<PrinterState & PrinterActions>()((set, get
       }
       await device.claimInterface(0)
 
-      set({ device, isConnected: true })
+      // Find OUT endpoint dynamically
+      let epNum = 1
+      const iface = device.configuration?.interfaces[0]
+      const alt = iface?.alternate
+      if (alt) {
+        const outEp = alt.endpoints.find((ep) => ep.direction === 'out')
+        if (outEp) epNum = outEp.endpointNumber
+      }
+
+      set({ device, isConnected: true, lastError: null, endpointNumber: epNum })
       return true
-    } catch {
+    } catch (err) {
+      set({ lastError: err instanceof Error ? err.message : 'Connection failed' })
       return false
     }
   },
@@ -129,39 +144,42 @@ export const usePrinterStore = create<PrinterState & PrinterActions>()((set, get
   disconnect: async () => {
     const { device } = get()
     if (device) {
-      try {
-        await device.close()
-      } catch { /* ignore */ }
+      try { await device.close() } catch { /* ignore */ }
     }
     set({ device: null, isConnected: false })
   },
 
   printImage: async (imageUrl: string) => {
-    const { device } = get()
-    if (!device || !get().isConnected) return
+    const { device, endpointNumber } = get()
+    if (!device || !get().isConnected) {
+      set({ lastError: 'Printer not connected' })
+      return
+    }
 
-    set({ isPrinting: true })
+    set({ isPrinting: true, lastError: null })
 
     try {
       const { data, width, height } = await imageUrlToMonoBitmap(imageUrl)
-      const bytesPerLine = Math.ceil(width / 8)
 
-      // Initialize
-      await device.transferOut(1, escposInit() as BufferSource)
+      // Initialize printer
+      await device.transferOut(endpointNumber, escposInit() as BufferSource)
 
-      // Print bitmap line by line
-      for (let y = 0; y < height; y++) {
-        const lineData = data.slice(y * bytesPerLine, (y + 1) * bytesPerLine)
-        await device.transferOut(1, escposBitmapLine(lineData, width) as BufferSource)
+      // Print as raster image (single command, more reliable)
+      const rasterCmd = escposRasterImage(data, width, height)
+
+      // Send in chunks to avoid buffer overflow
+      const CHUNK_SIZE = 4096
+      for (let i = 0; i < rasterCmd.length; i += CHUNK_SIZE) {
+        const chunk = rasterCmd.slice(i, i + CHUNK_SIZE)
+        await device.transferOut(endpointNumber, chunk as BufferSource)
       }
 
       // Feed and cut
-      await device.transferOut(1, escposFeedLines(4) as BufferSource)
-      await device.transferOut(1, escposCut() as BufferSource)
+      await device.transferOut(endpointNumber, escposFeedLines(4) as BufferSource)
+      await device.transferOut(endpointNumber, escposCut() as BufferSource)
     } catch (err) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Print failed:', err)
-      }
+      const message = err instanceof Error ? err.message : 'Print failed'
+      set({ lastError: message })
     } finally {
       set({ isPrinting: false })
     }
