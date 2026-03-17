@@ -14,18 +14,20 @@ export function useCountdown(): UseCountdownReturn {
   const resolveRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
-    if (!isRunning || count === null) return
-
-    if (count <= 0) {
-      setIsRunning(false)
-      setCount(null)
-      resolveRef.current?.()
-      resolveRef.current = null
-      return
-    }
+    if (!isRunning || count === null || count <= 0) return
 
     const timer = setTimeout(() => {
-      setCount((prev) => (prev !== null ? prev - 1 : null))
+      setCount((prev) => {
+        if (prev === null) return null
+        const next = prev - 1
+        if (next <= 0) {
+          setIsRunning(false)
+          resolveRef.current?.()
+          resolveRef.current = null
+          return null
+        }
+        return next
+      })
     }, 1000)
 
     return () => clearTimeout(timer)

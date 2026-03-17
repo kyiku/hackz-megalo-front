@@ -1,23 +1,24 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-
 type FlashOverlayProps = {
   readonly trigger: number
 }
 
+function FlashElement() {
+  return (
+    <>
+      <div className="pointer-events-none absolute inset-0 z-20 animate-[flash_200ms_ease-out_forwards] bg-white" />
+      <style jsx>{`
+        @keyframes flash {
+          0% { opacity: 0.9; }
+          100% { opacity: 0; }
+        }
+      `}</style>
+    </>
+  )
+}
+
 export function FlashOverlay({ trigger }: FlashOverlayProps) {
-  const [isFlashing, setIsFlashing] = useState(false)
-
-  useEffect(() => {
-    if (trigger === 0) return
-
-    setIsFlashing(true)
-    const timer = setTimeout(() => setIsFlashing(false), 150)
-    return () => clearTimeout(timer)
-  }, [trigger])
-
-  if (!isFlashing) return null
-
-  return <div className="absolute inset-0 z-20 bg-white opacity-80" />
+  if (trigger === 0) return null
+  return <FlashElement key={trigger} />
 }
