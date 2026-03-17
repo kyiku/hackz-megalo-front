@@ -19,6 +19,7 @@ type RoomState = {
   readonly phase: RoomPhase
   readonly phoneConnected: boolean
   readonly selectedFilter: string | null
+  readonly sessionId: string | null
 }
 
 type RoomActions = {
@@ -27,6 +28,7 @@ type RoomActions = {
   readonly setPhase: (phase: RoomPhase) => void
   readonly setPhoneConnected: (connected: boolean) => void
   readonly setSelectedFilter: (filter: string | null) => void
+  readonly setSessionId: (sessionId: string | null) => void
   readonly leaveRoom: () => void
 }
 
@@ -36,6 +38,7 @@ const initialState: RoomState = {
   phase: 'idle',
   phoneConnected: false,
   selectedFilter: null,
+  sessionId: null,
 }
 
 function generateRoomId(): string {
@@ -74,6 +77,8 @@ export const useRoomStore = create<RoomState & RoomActions>()((set) => ({
   setPhoneConnected: (connected) => set({ phoneConnected: connected }),
 
   setSelectedFilter: (filter) => set({ selectedFilter: filter }),
+
+  setSessionId: (sessionId) => set({ sessionId }),
 
   leaveRoom: () => set(initialState),
 }))
