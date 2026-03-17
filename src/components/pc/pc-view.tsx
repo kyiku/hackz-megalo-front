@@ -10,6 +10,7 @@ import { useWsStore } from '@/stores/ws-store'
 import { CompleteScreen } from './complete-screen'
 import { FilterScreen } from './filter-screen'
 import { IdleScreen } from './idle-screen'
+import { PreviewScreen } from './preview-screen'
 import { ProcessingScreen } from './processing-screen'
 import { ResultScreen } from './result-screen'
 import { ShootingScreen } from './shooting-screen'
@@ -126,7 +127,6 @@ export function PcView() {
     case 'filter-select':
       return <FilterScreen />
     case 'shooting':
-    case 'preview':
       return (
         <ShootingScreen
           remoteStream={remoteStream}
@@ -135,6 +135,8 @@ export function PcView() {
           lastShutterIndex={lastShutterIndex}
         />
       )
+    case 'preview':
+      return <PreviewScreen />
     case 'processing':
       return <ProcessingScreen />
     case 'result':
