@@ -11,6 +11,7 @@ type ShootingScreenProps = {
   readonly wsRef: React.RefObject<WebSocket | null>
   readonly countdownValue: number | null
   readonly lastShutterIndex: number | null
+  readonly iceState: string | null
 }
 
 export function ShootingScreen({
@@ -18,6 +19,7 @@ export function ShootingScreen({
   wsRef,
   countdownValue,
   lastShutterIndex,
+  iceState,
 }: ShootingScreenProps) {
   const { photos } = useSessionStore()
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -51,7 +53,19 @@ export function ShootingScreen({
           />
         ) : (
           <div className="flex h-full items-center justify-center bg-cream-dark/20">
-            <p className="receipt-text text-sm text-ink-light">カメラ映像を待機中...</p>
+            <div className="receipt-text text-center text-ink-light">
+              <p className="text-sm">カメラ映像を待機中...</p>
+              {iceState && (
+                <p className="mt-1 font-mono text-[10px]">ICE: {iceState}</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ICE接続状態（デバッグ用） */}
+        {iceState && iceState !== 'connected' && iceState !== 'completed' && (
+          <div className="absolute bottom-1 left-1 font-mono text-[10px] text-ink-light/50">
+            ICE: {iceState}
           </div>
         )}
 
