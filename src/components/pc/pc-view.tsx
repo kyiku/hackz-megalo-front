@@ -38,7 +38,7 @@ export function PcView() {
   }, [ws])
 
   // WebRTC（PC側：受信のみ）
-  const { remoteStream } = useWebRtc({
+  const { remoteStream, iceState } = useWebRtc({
     ws,
     roomId,
     role: 'pc',
@@ -133,6 +133,7 @@ export function PcView() {
           wsRef={wsRef}
           countdownValue={countdownValue}
           lastShutterIndex={lastShutterIndex}
+          iceState={iceState}
         />
       )
     case 'preview':
