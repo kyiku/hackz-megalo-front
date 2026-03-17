@@ -2,14 +2,14 @@ import type { ApiResponse } from './types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL
 
-if (!API_BASE_URL) {
-  throw new Error('NEXT_PUBLIC_API_BASE_URL is not configured')
-}
-
 export async function apiRequest<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<ApiResponse<T>> {
+  if (!API_BASE_URL) {
+    return { success: false, error: 'API_BASE_URL is not configured' }
+  }
+
   const url = `${API_BASE_URL}${path}`
 
   try {
@@ -22,9 +22,10 @@ export async function apiRequest<T>(
     })
 
     if (!response.ok) {
+      const body = await response.json().catch(() => ({})) as { error?: string }
       return {
         success: false,
-        error: `HTTP ${response.status}: ${response.statusText}`,
+        error: body.error ?? `HTTP ${response.status}: ${response.statusText}`,
       }
     }
 

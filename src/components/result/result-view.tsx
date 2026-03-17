@@ -2,19 +2,46 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
 
-import { Button } from '@/components/ui/button'
-import { PageContainer } from '@/components/ui/page-container'
-import { ReceiptFrame } from '@/components/ui/receipt-frame'
+import { getSession } from '@/lib/api/sessions'
+import { useSessionStore } from '@/stores/session-store'
+
+import { Button } from '../ui/button'
+import { PageContainer } from '../ui/page-container'
+import { ReceiptFrame } from '../ui/receipt-frame'
 
 type ResultViewProps = {
   readonly sessionId: string
 }
 
 export function ResultView({ sessionId }: ResultViewProps) {
-  // TODO: sessionId でバックエンドから結果を取得
-  const collageUrl: string | null = null
-  const caption = 'みんなの笑顔が最高にキュートだね！'
+  const { collageUrl: storeCollageUrl, caption: storeCaption } = useSessionStore()
+  const [collageUrl, setCollageUrl] = useState<string | null>(storeCollageUrl)
+  const [caption, setCaption] = useState<string | null>(storeCaption)
+  const [loading, setLoading] = useState(!storeCollageUrl)
+
+  useEffect(() => {
+    if (storeCollageUrl) return
+
+    const fetchSession = async () => {
+      try {
+        const session = await getSession(sessionId)
+        if (session.collageImageUrl) {
+          setCollageUrl(session.collageImageUrl)
+        }
+        if (session.caption) {
+          setCaption(session.caption)
+        }
+      } catch {
+        // ignore - show placeholder
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    void fetchSession()
+  }, [sessionId, storeCollageUrl])
 
   return (
     <PageContainer className="flex flex-col items-center gap-6">
@@ -32,7 +59,6 @@ export function ResultView({ sessionId }: ResultViewProps) {
           <div className="my-2 border-t border-dashed border-ink-light/30" />
         </div>
 
-        {/* コラージュ画像 */}
         <div className="relative aspect-square border border-dashed border-ink-light/30 bg-cream-dark/20">
           {collageUrl ? (
             <Image
@@ -45,18 +71,25 @@ export function ResultView({ sessionId }: ResultViewProps) {
           ) : (
             <div className="flex h-full items-center justify-center">
               <div className="receipt-text text-center text-ink-light">
-                <p className="text-xs">[ コラージュ画像 ]</p>
-                <p className="mt-1 text-[10px]">バックエンド接続後に表示</p>
+                {loading ? (
+                  <p className="animate-pulse text-xs">読み込み中...</p>
+                ) : (
+                  <>
+                    <p className="text-xs">[ コラージュ画像 ]</p>
+                    <p className="mt-1 text-[10px]">バックエンド接続後に表示</p>
+                  </>
+                )}
               </div>
             </div>
           )}
         </div>
 
-        {/* AIキャプション */}
-        <div className="mt-3 border-t border-dashed border-ink-light/30 pt-3">
-          <p className="receipt-text text-xs text-ink-light">CAPTION:</p>
-          <p className="mt-1 text-sm leading-relaxed">&quot;{caption}&quot;</p>
-        </div>
+        {caption && (
+          <div className="mt-3 border-t border-dashed border-ink-light/30 pt-3">
+            <p className="receipt-text text-xs text-ink-light">CAPTION:</p>
+            <p className="mt-1 text-sm leading-relaxed">&quot;{caption}&quot;</p>
+          </div>
+        )}
 
         <div className="mt-3 border-t border-dashed border-ink-light/30 pt-2 text-center">
           <p className="font-mono text-[10px] text-ink-light">
@@ -66,9 +99,13 @@ export function ResultView({ sessionId }: ResultViewProps) {
       </ReceiptFrame>
 
       <div className="flex w-full flex-col gap-3">
-        <Button size="lg" className="w-full" disabled={!collageUrl}>
-          画像を保存
-        </Button>
+        {collageUrl && (
+          <a href={collageUrl} download className="w-full">
+            <Button size="lg" className="w-full">
+              画像を保存
+            </Button>
+          </a>
+        )}
 
         <Link href="/filter" className="w-full">
           <Button variant="secondary" size="md" className="w-full">
