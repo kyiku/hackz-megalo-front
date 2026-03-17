@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 
 type QrDisplayProps = {
@@ -7,8 +8,13 @@ type QrDisplayProps = {
 }
 
 export function QrDisplay({ roomId }: QrDisplayProps) {
-  const origin = typeof window !== 'undefined' ? window.location.origin : ''
-  const joinUrl = `${origin}/room/${roomId}`
+  const [joinUrl, setJoinUrl] = useState('')
+
+  useEffect(() => {
+    setJoinUrl(`${window.location.origin}/room/${roomId}`)
+  }, [roomId])
+
+  if (!joinUrl) return null
 
   return (
     <div className="flex flex-col items-center gap-4">

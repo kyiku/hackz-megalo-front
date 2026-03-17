@@ -1,0 +1,116 @@
+'use client'
+
+import { useRouter } from 'next/navigation'
+import { useCallback, useState } from 'react'
+
+import Image from 'next/image'
+
+import { DoodleEditor } from '@/components/doodle/doodle-editor'
+import type { DoodleLayer } from '@/components/doodle/types'
+import { Button } from '@/components/ui/button'
+import { PageContainer } from '@/components/ui/page-container'
+import { useSessionStore } from '@/stores/session-store'
+
+export default function DoodlePage() {
+  const router = useRouter()
+  const { photos } = useSessionStore()
+  const [editingIndex, setEditingIndex] = useState<number | null>(null)
+  const [photoLayers, setPhotoLayers] = useState<Record<number, readonly DoodleLayer[]>>({})
+
+  const handleSave = useCallback(
+    (layers: readonly DoodleLayer[]) => {
+      if (editingIndex === null) return
+      setPhotoLayers((prev) => ({ ...prev, [editingIndex]: layers }))
+      setEditingIndex(null)
+    },
+    [editingIndex],
+  )
+
+  const handleCancel = useCallback(() => {
+    setEditingIndex(null)
+  }, [])
+
+  const handleDone = useCallback(() => {
+    router.push('/processing/demo')
+  }, [router])
+
+  if (photos.length === 0) {
+    router.replace('/filter')
+    return null
+  }
+
+  // 個別編集モード
+  if (editingIndex !== null) {
+    const photo = photos[editingIndex]
+    if (!photo) return null
+
+    return (
+      <DoodleEditor
+        photoSrc={photo}
+        onSave={handleSave}
+        onCancel={handleCancel}
+        initialLayers={photoLayers[editingIndex] ?? []}
+      />
+    )
+  }
+
+  // 写真選択モード
+  return (
+    <PageContainer className="flex flex-col gap-6">
+      <header>
+        <p className="receipt-text text-[10px] tracking-[0.3em] text-ink-light">STEP 04</p>
+        <h1 className="mt-1 text-xl font-bold tracking-tight">落書きしよう</h1>
+        <p className="mt-0.5 text-xs text-ink-light">写真をタップして落書きできるよ</p>
+      </header>
+
+      <div className="grid grid-cols-2 gap-1.5">
+        {photos.map((photo, index) => {
+          const hasLayers = (photoLayers[index]?.length ?? 0) > 0
+          return (
+            <button
+              key={index}
+              type="button"
+              onClick={() => setEditingIndex(index)}
+              className="group relative aspect-[3/4] overflow-hidden border border-cream-dark"
+            >
+              <Image
+                src={photo}
+                alt={`${index + 1}枚目`}
+                fill
+                className="object-cover"
+                unoptimized
+              />
+              <div className="absolute inset-0 flex items-center justify-center bg-ink/0 transition-all group-hover:bg-ink/20 group-active:bg-ink/20">
+                <span className="bg-cream px-2 py-1 text-xs font-bold text-ink opacity-0 transition-opacity group-hover:opacity-100 group-active:opacity-100">
+                  落書きする
+                </span>
+              </div>
+              <span className="absolute top-1 left-1 bg-ink/60 px-1.5 py-0.5 font-mono text-[10px] text-white">
+                {index + 1}
+              </span>
+              {hasLayers && (
+                <span className="absolute top-1 right-1 bg-pink px-1.5 py-0.5 text-[10px] font-bold text-white">
+                  編集済
+                </span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <Button size="lg" className="w-full" onClick={handleDone}>
+          OK! 印刷する
+        </Button>
+
+        <button
+          type="button"
+          onClick={() => router.push('/preview')}
+          className="text-center text-sm text-ink-light"
+        >
+          戻る
+        </button>
+      </div>
+    </PageContainer>
+  )
+}
