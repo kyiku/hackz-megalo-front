@@ -28,12 +28,11 @@ export function FilterList() {
   const selectedId: FilterId | null = filter?.value ?? null
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8">
       <section>
-        <h2 className="mb-3 font-bold text-ink">
-          <span className="receipt-text text-xs text-ink-light">━━</span> 簡易フィルター
-        </h2>
-        <div className="flex flex-col gap-2">
+        <p className="receipt-text mb-1 text-[10px] tracking-[0.3em] text-ink-light">SIMPLE</p>
+        <h2 className="mb-3 text-sm font-bold">簡易フィルター</h2>
+        <div className="flex flex-col">
           {SIMPLE_FILTERS.map((f) => (
             <FilterCard
               key={f.id}
@@ -46,13 +45,12 @@ export function FilterList() {
       </section>
 
       <section>
-        <h2 className="mb-3 font-bold text-ink">
-          <span className="receipt-text text-xs text-ink-light">━━</span> AIスタイル変換
-        </h2>
-        <p className="mb-3 rounded-xl bg-yellow/10 p-2 text-xs text-ink-light">
-          AIが画風を変換するため、処理に15秒ほどかかります
+        <p className="receipt-text mb-1 text-[10px] tracking-[0.3em] text-ink-light">AI STYLE</p>
+        <h2 className="mb-2 text-sm font-bold">AIスタイル変換</h2>
+        <p className="mb-3 font-mono text-[10px] text-ink-light">
+          * 処理に15秒ほどかかります
         </p>
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col">
           {AI_FILTERS.map((f) => (
             <FilterCard
               key={f.id}
@@ -64,9 +62,9 @@ export function FilterList() {
         </div>
       </section>
 
-      <div className="sticky bottom-4 pt-2">
+      <div className="sticky bottom-4">
         <Button size="lg" className="w-full" disabled={!filter} onClick={handleStart}>
-          {filter ? '撮影スタート →' : 'フィルターを選んでね'}
+          {filter ? '撮影スタート' : 'フィルターを選んでね'}
         </Button>
       </div>
     </div>

@@ -9,7 +9,7 @@ export function CountdownOverlay({ count }: CountdownOverlayProps) {
 
   return (
     <div className="absolute inset-0 z-10 flex items-center justify-center">
-      <div className="pukkuri-text animate-bounce font-display text-[120px] text-white drop-shadow-[0_4px_8px_rgba(0,0,0,0.4)]">
+      <div className="font-mono text-[120px] font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
         {count}
       </div>
     </div>

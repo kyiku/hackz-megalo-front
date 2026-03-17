@@ -7,7 +7,7 @@ export type FilterInfo = {
   readonly name: string
   readonly description: string
   readonly type: 'simple' | 'ai'
-  readonly emoji: string
+  readonly color: string
   readonly processingTime: string
 }
 
@@ -15,41 +15,41 @@ export const SIMPLE_FILTERS: readonly FilterInfo[] = [
   {
     id: 'natural',
     name: 'ナチュラル',
-    description: 'そのまま、ありのままで',
+    description: 'そのまま',
     type: 'simple',
-    emoji: '✨',
+    color: '#e8e4de',
     processingTime: '即座',
   },
   {
     id: 'skin-smooth',
     name: '美肌',
-    description: 'つるすべ肌に補正',
+    description: 'なめらか補正',
     type: 'simple',
-    emoji: '🍑',
+    color: '#f5cac3',
     processingTime: '~1秒',
   },
   {
     id: 'brightness',
-    name: '明るさ補正',
-    description: 'パッと明るく映える',
+    name: '明るさ',
+    description: '映える仕上がり',
     type: 'simple',
-    emoji: '☀️',
+    color: '#fde68a',
     processingTime: '~1秒',
   },
   {
     id: 'monochrome',
     name: 'モノクロ',
-    description: 'レシートとの相性バツグン',
+    description: 'レシート映え',
     type: 'simple',
-    emoji: '🖤',
+    color: '#404040',
     processingTime: '~1秒',
   },
   {
     id: 'sepia',
     name: 'セピア',
-    description: 'エモいレトロ感',
+    description: 'レトロ',
     type: 'simple',
-    emoji: '📷',
+    color: '#c4a882',
     processingTime: '~1秒',
   },
 ] as const
@@ -58,25 +58,25 @@ export const AI_FILTERS: readonly FilterInfo[] = [
   {
     id: 'anime',
     name: 'アニメ風',
-    description: 'AIがイラスト風に変換',
+    description: 'AIが変換',
     type: 'ai',
-    emoji: '🎨',
+    color: '#93c5fd',
     processingTime: '~15秒',
   },
   {
     id: 'pop-art',
     name: 'ポップアート',
-    description: 'カラフルでポップに',
+    description: 'カラフル',
     type: 'ai',
-    emoji: '🎪',
+    color: '#f472b6',
     processingTime: '~15秒',
   },
   {
     id: 'watercolor',
     name: '水彩画',
-    description: 'やわらかい水彩タッチ',
+    description: 'やわらか',
     type: 'ai',
-    emoji: '🌊',
+    color: '#6ee7b7',
     processingTime: '~15秒',
   },
 ] as const

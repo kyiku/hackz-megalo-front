@@ -13,9 +13,8 @@ export function StepIndicator({ current, total, className = '' }: StepIndicatorP
         <div
           key={i}
           className={[
-            'h-3 w-3 rounded-full transition-all duration-200',
-            i < current ? 'bg-pink scale-100' : 'bg-cream-dark scale-90',
-            i === current - 1 ? 'ring-2 ring-pink-light ring-offset-2 ring-offset-cream' : '',
+            'h-2 w-2 rounded-full transition-all duration-200',
+            i < current ? 'bg-ink' : 'bg-cream-dark',
           ].join(' ')}
         />
       ))}
