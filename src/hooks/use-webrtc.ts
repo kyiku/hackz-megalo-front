@@ -27,12 +27,14 @@ export function useWebRtc({
   localStream,
 }: UseWebRtcOptions): UseWebRtcReturn {
   const pcRef = useRef<RTCPeerConnection | null>(null)
+  const iceCandidateQueueRef = useRef<RTCIceCandidateInit[]>([])
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
   const [isConnected, setIsConnected] = useState(false)
 
   const closePeerConnection = useCallback(() => {
     pcRef.current?.close()
     pcRef.current = null
+    iceCandidateQueueRef.current = []
   }, [])
 
   const sendSignaling = useCallback(
@@ -43,6 +45,20 @@ export function useWebRtc({
     },
     [wsRef, roomId],
   )
+
+  const flushIceCandidateQueue = useCallback(async (pc: RTCPeerConnection) => {
+    const queue = iceCandidateQueueRef.current
+    iceCandidateQueueRef.current = []
+    for (const candidate of queue) {
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate))
+      } catch (err) {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Failed to add queued ICE candidate:', err)
+        }
+      }
+    }
+  }, [])
 
   const createPeerConnection = useCallback(() => {
     closePeerConnection()
@@ -81,6 +97,7 @@ export function useWebRtc({
       try {
         const pc = createPeerConnection()
         await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp }))
+        await flushIceCandidateQueue(pc)
         const answer = await pc.createAnswer()
         await pc.setLocalDescription(answer)
         sendSignaling('webrtc_answer', { sdp: answer.sdp })
@@ -90,7 +107,7 @@ export function useWebRtc({
         }
       }
     },
-    [createPeerConnection, sendSignaling],
+    [createPeerConnection, sendSignaling, flushIceCandidateQueue],
   )
 
   const handleAnswer = useCallback(async (sdp: string) => {
@@ -98,18 +115,23 @@ export function useWebRtc({
       const pc = pcRef.current
       if (!pc) return
       await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp }))
+      await flushIceCandidateQueue(pc)
     } catch (err) {
       if (process.env.NODE_ENV === 'development') {
         console.error('Failed to handle WebRTC answer:', err)
       }
     }
-  }, [])
+  }, [flushIceCandidateQueue])
 
   const handleIce = useCallback(async (candidateStr: string) => {
-    const pc = pcRef.current
-    if (!pc) return
     try {
       const candidate = JSON.parse(candidateStr) as RTCIceCandidateInit
+      const pc = pcRef.current
+      if (!pc || !pc.remoteDescription) {
+        // PCがまだ準備できていない場合はキューに入れる
+        iceCandidateQueueRef.current = [...iceCandidateQueueRef.current, candidate]
+        return
+      }
       await pc.addIceCandidate(new RTCIceCandidate(candidate))
     } catch (err) {
       if (process.env.NODE_ENV === 'development') {
