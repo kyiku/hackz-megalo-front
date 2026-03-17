@@ -30,6 +30,11 @@ export function useWebRtc({
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
   const [isConnected, setIsConnected] = useState(false)
 
+  const closePeerConnection = useCallback(() => {
+    pcRef.current?.close()
+    pcRef.current = null
+  }, [])
+
   const sendSignaling = useCallback(
     (action: string, data: Record<string, unknown>) => {
       const ws = wsRef.current
@@ -40,6 +45,8 @@ export function useWebRtc({
   )
 
   const createPeerConnection = useCallback(() => {
+    closePeerConnection()
+
     const pc = new RTCPeerConnection(RTC_CONFIG)
     pcRef.current = pc
 
@@ -67,7 +74,7 @@ export function useWebRtc({
     }
 
     return pc
-  }, [localStream, sendSignaling])
+  }, [localStream, sendSignaling, closePeerConnection])
 
   const handleOffer = useCallback(
     async (sdp: string) => {
@@ -92,12 +99,13 @@ export function useWebRtc({
     try {
       const candidate = JSON.parse(candidateStr) as RTCIceCandidateInit
       await pc.addIceCandidate(new RTCIceCandidate(candidate))
-    } catch {
-      // ignore invalid candidates
+    } catch (err) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to add ICE candidate:', err)
+      }
     }
   }, [])
 
-  // スマホ側: オファーを送信
   const startCall = useCallback(async () => {
     const pc = createPeerConnection()
     const offer = await pc.createOffer()
@@ -126,8 +134,10 @@ export function useWebRtc({
         if (msg.type === 'webrtc_ice') {
           void handleIce(msg.data.candidate ?? '')
         }
-      } catch {
-        // ignore
+      } catch (err) {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Failed to parse WebRTC signaling:', err)
+        }
       }
     }
 
@@ -137,45 +147,24 @@ export function useWebRtc({
 
   // スマホ側: ルーム参加後にオファー送信
   useEffect(() => {
-    if (role === 'phone' && roomId && localStream) {
-      const ws = wsRef.current
-      if (!ws || ws.readyState !== WebSocket.OPEN) return
+    if (role !== 'phone' || !roomId || !localStream) return
 
-      // ルーム参加
-      ws.send(JSON.stringify({
-        action: 'join_room',
-        data: { roomId, role: 'phone' },
-      }))
+    const ws = wsRef.current
+    if (!ws || ws.readyState !== WebSocket.OPEN) return
 
-      // 少し待ってからオファー送信
-      const timer = setTimeout(() => {
-        void startCall()
-      }, 1000)
+    const timer = setTimeout(() => {
+      void startCall()
+    }, 1000)
 
-      return () => clearTimeout(timer)
-    }
+    return () => clearTimeout(timer)
   }, [role, roomId, localStream, wsRef, startCall])
-
-  // PC側: ルーム参加
-  useEffect(() => {
-    if (role === 'pc' && roomId) {
-      const ws = wsRef.current
-      if (!ws || ws.readyState !== WebSocket.OPEN) return
-
-      ws.send(JSON.stringify({
-        action: 'join_room',
-        data: { roomId, role: 'pc' },
-      }))
-    }
-  }, [role, roomId, wsRef])
 
   // クリーンアップ
   useEffect(() => {
     return () => {
-      pcRef.current?.close()
-      pcRef.current = null
+      closePeerConnection()
     }
-  }, [])
+  }, [closePeerConnection])
 
   return { remoteStream, isConnected }
 }

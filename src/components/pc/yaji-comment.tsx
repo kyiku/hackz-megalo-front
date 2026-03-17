@@ -15,12 +15,12 @@ type YajiCommentProps = {
 
 const LANE_COUNT = 8
 const COMMENT_DURATION = 5000
-
-let commentId = 0
+const MAX_COMMENTS = 50
+const MAX_TEXT_LENGTH = 200
 
 export function YajiComment({ wsRef }: YajiCommentProps) {
   const [comments, setComments] = useState<readonly Comment[]>([])
-  const containerRef = useRef<HTMLDivElement>(null)
+  const commentIdRef = useRef(0)
 
   useEffect(() => {
     const ws = wsRef.current
@@ -30,22 +30,30 @@ export function YajiComment({ wsRef }: YajiCommentProps) {
       try {
         const msg = JSON.parse(event.data as string) as {
           type: string
-          data: { text: string }
+          data: { text: unknown }
         }
 
         if (msg.type === 'yajiComment') {
-          commentId += 1
+          const rawText = msg.data.text
+          if (typeof rawText !== 'string' || rawText.length === 0 || rawText.length > MAX_TEXT_LENGTH) return
+
+          commentIdRef.current += 1
           const newComment: Comment = {
-            id: commentId,
-            text: msg.data.text,
+            id: commentIdRef.current,
+            text: rawText.slice(0, MAX_TEXT_LENGTH),
             lane: Math.floor(Math.random() * LANE_COUNT),
             startTime: Date.now(),
           }
 
-          setComments((prev) => [...prev, newComment])
+          setComments((prev) => {
+            const updated = [...prev, newComment]
+            return updated.length > MAX_COMMENTS ? updated.slice(-MAX_COMMENTS) : updated
+          })
         }
-      } catch {
-        // ignore
+      } catch (err) {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Failed to parse yaji comment:', err)
+        }
       }
     }
 
@@ -53,7 +61,6 @@ export function YajiComment({ wsRef }: YajiCommentProps) {
     return () => ws.removeEventListener('message', handler)
   }, [wsRef])
 
-  // 古いコメントを定期的に削除
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now()
@@ -66,10 +73,7 @@ export function YajiComment({ wsRef }: YajiCommentProps) {
   }, [])
 
   return (
-    <div
-      ref={containerRef}
-      className="pointer-events-none absolute inset-0 overflow-hidden"
-    >
+    <div className="pointer-events-none absolute inset-0 overflow-hidden">
       {comments.map((comment) => (
         <div
           key={comment.id}

@@ -43,7 +43,9 @@ export function useCamera(): UseCameraReturn {
         if (videoRef.current) {
           videoRef.current.srcObject = stream
           await videoRef.current.play()
-          setIsReady(true)
+          if (!cancelled) {
+            setIsReady(true)
+          }
         }
       } catch (err) {
         if (!cancelled) {
