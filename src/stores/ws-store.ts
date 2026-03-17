@@ -24,11 +24,9 @@ export const useWsStore = create<WsState & WsActions>()((set, get) => ({
   connect: (roomId, role) => {
     const state = get()
 
-    // 既に同じルームに接続済みならスキップ
-    if (state.ws && state.roomId === roomId && state.role === role) {
-      if (state.ws.readyState === WebSocket.OPEN || state.ws.readyState === WebSocket.CONNECTING) {
-        return
-      }
+    // 既に同じルームに接続済み（OPEN状態）ならスキップ
+    if (state.ws && state.roomId === roomId && state.role === role && state.isConnected) {
+      return
     }
 
     // 既存接続があれば閉じる（再接続ループを防ぐためnullに先にセット）
@@ -45,7 +43,9 @@ export const useWsStore = create<WsState & WsActions>()((set, get) => ({
     const ws = new WebSocket(WS_URL)
 
     ws.addEventListener('open', () => {
-      set({ isConnected: true })
+      // OPENになってからwsをstoreにセット
+      // これによりuseWebRtcのuseEffectがOPEN状態のwsで発火する
+      set({ ws, isConnected: true })
       ws.send(JSON.stringify({
         action: 'join_room',
         data: { roomId, role },
@@ -53,21 +53,17 @@ export const useWsStore = create<WsState & WsActions>()((set, get) => ({
     })
 
     ws.addEventListener('close', () => {
-      // 現在のwsと一致する場合のみ再接続
       const current = get()
       if (current.ws !== ws) return
 
-      set({ isConnected: false })
+      set({ ws: null, isConnected: false })
 
-      // 再接続
       if (current.roomId && current.role) {
         const reconnectRoomId = current.roomId
         const reconnectRole = current.role
         setTimeout(() => {
           const still = get()
-          // wsがnullのままなら（他のconnectが走っていなければ）再接続
-          if (still.ws === ws || still.ws === null) {
-            set({ ws: null })
+          if (still.ws === null) {
             get().connect(reconnectRoomId, reconnectRole)
           }
         }, 2000)
@@ -79,8 +75,6 @@ export const useWsStore = create<WsState & WsActions>()((set, get) => ({
         console.error('WebSocket connection error')
       }
     })
-
-    set({ ws })
   },
 
   disconnect: () => {
