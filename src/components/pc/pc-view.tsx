@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { useShootingSync } from '@/hooks/use-shooting-sync'
-import { useWebRtc } from '@/hooks/use-webrtc'
 import { useRoomStore } from '@/stores/room-store'
+import { useWsStore } from '@/stores/ws-store'
 
 import { CompleteScreen } from './complete-screen'
 import { FilterScreen } from './filter-screen'
@@ -13,105 +13,66 @@ import { ProcessingScreen } from './processing-screen'
 import { ResultScreen } from './result-screen'
 import { ShootingScreen } from './shooting-screen'
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? ''
-
 export function PcView() {
   const { roomId, phase, createRoom, setPhase, setPhoneConnected } = useRoomStore()
+  const { ws, connect } = useWsStore()
   const wsRef = useRef<WebSocket | null>(null)
   const [countdownValue, setCountdownValue] = useState<number | null>(null)
   const [lastShutterIndex, setLastShutterIndex] = useState<number | null>(null)
 
-  // ルーム作成
+  // ルーム作成 + WebSocket接続
   useEffect(() => {
     if (!roomId) {
-      createRoom()
+      const newRoomId = createRoom()
+      connect(newRoomId, 'pc')
     }
-  }, [roomId, createRoom])
+  }, [roomId, createRoom, connect])
 
-  // WebSocket接続（再接続ロジック付き）
+  // wsRef を ws-store の ws に同期（既存hookとの互換性のため）
   useEffect(() => {
-    if (!roomId || !WS_URL) return
+    wsRef.current = ws
+  }, [ws])
 
-    let reconnectAttempts = 0
-    let reconnectTimer: ReturnType<typeof setTimeout> | null = null
-    let cancelled = false
+  // WebSocketメッセージリスナー
+  useEffect(() => {
+    if (!ws) return
 
-    const connect = () => {
-      if (cancelled) return
+    const handler = (event: MessageEvent) => {
+      try {
+        const msg = JSON.parse(event.data as string) as {
+          type: string
+          data: Record<string, unknown>
+        }
 
-      const ws = new WebSocket(WS_URL)
-      wsRef.current = ws
+        if (msg.type === 'shooting_sync') {
+          const syncEvent = msg.data.event as string
 
-      ws.addEventListener('open', () => {
-        reconnectAttempts = 0
-        ws.send(JSON.stringify({
-          action: 'join_room',
-          data: { roomId, role: 'pc' },
-        }))
-      })
-
-      ws.addEventListener('message', (event) => {
-        try {
-          const msg = JSON.parse(event.data as string) as {
-            type: string
-            data: Record<string, unknown>
-          }
-
-          if (msg.type === 'shooting_sync') {
-            const syncEvent = msg.data.event as string
-
-            // スマホからのフェーズ通知
-            if (syncEvent === 'phase_change') {
-              const newPhase = msg.data.phase as string
-              if (['filter-select', 'shooting', 'preview', 'processing', 'result'].includes(newPhase)) {
-                setPhase(newPhase as Parameters<typeof setPhase>[0])
-                setPhoneConnected(true)
-              }
-            }
-
-            if (syncEvent === 'shooting_start') {
-              setPhase('shooting')
+          if (syncEvent === 'phase_change') {
+            const newPhase = msg.data.phase as string
+            if (['filter-select', 'shooting', 'preview', 'processing', 'result'].includes(newPhase)) {
+              setPhase(newPhase as Parameters<typeof setPhase>[0])
               setPhoneConnected(true)
             }
-            if (syncEvent === 'shooting_complete') {
-              setPhase('preview')
-            }
           }
-        } catch (err) {
-          if (process.env.NODE_ENV === 'development') {
-            console.error('Failed to parse WebSocket message:', err)
+
+          if (syncEvent === 'shooting_start') {
+            setPhase('shooting')
+            setPhoneConnected(true)
+          }
+          if (syncEvent === 'shooting_complete') {
+            setPhase('preview')
           }
         }
-      })
-
-      ws.addEventListener('close', () => {
-        if (cancelled) return
-        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000)
-        reconnectAttempts += 1
-        reconnectTimer = setTimeout(connect, delay)
-      })
-
-      ws.addEventListener('error', () => {
-        ws.close()
-      })
+      } catch (err) {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Failed to parse WebSocket message:', err)
+        }
+      }
     }
 
-    connect()
-
-    return () => {
-      cancelled = true
-      if (reconnectTimer) clearTimeout(reconnectTimer)
-      wsRef.current?.close()
-      wsRef.current = null
-    }
-  }, [roomId, setPhase, setPhoneConnected])
-
-  // WebRTC（PC側：受信のみ）
-  const { remoteStream } = useWebRtc({
-    wsRef,
-    roomId,
-    role: 'pc',
-  })
+    ws.addEventListener('message', handler)
+    return () => ws.removeEventListener('message', handler)
+  }, [ws, setPhase, setPhoneConnected])
 
   // 撮影イベント受信
   const handleShootingEvent = useCallback(
@@ -151,7 +112,7 @@ export function PcView() {
     case 'preview':
       return (
         <ShootingScreen
-          remoteStream={remoteStream}
+          remoteStream={null}
           wsRef={wsRef}
           countdownValue={countdownValue}
           lastShutterIndex={lastShutterIndex}

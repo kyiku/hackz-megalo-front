@@ -1,95 +1,38 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 
 import { StepIndicator } from '@/components/ui/step-indicator'
 import { useCamera } from '@/hooks/use-camera'
 import { useCountdown } from '@/hooks/use-countdown'
-import { useWebRtc } from '@/hooks/use-webrtc'
 import { useRoomStore } from '@/stores/room-store'
 import { useSessionStore } from '@/stores/session-store'
+import { useWsStore } from '@/stores/ws-store'
 
 import { CountdownOverlay } from './countdown-overlay'
 import { FlashOverlay } from './flash-overlay'
 
 const TOTAL_PHOTOS = 4
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? ''
 
 export function ShootView() {
   const router = useRouter()
-  const { videoRef, isReady, error, capture, stream } = useCamera()
+  const { videoRef, isReady, error, capture } = useCamera()
   const { count, isRunning, start: startCountdown } = useCountdown()
   const { filter, addPhoto, photos } = useSessionStore()
   const { roomId } = useRoomStore()
+  const { send } = useWsStore()
   const [flashTrigger, setFlashTrigger] = useState(0)
   const isShootingRef = useRef(false)
-  const wsRef = useRef<WebSocket | null>(null)
 
   const photoCount = photos.length
 
-  // WebSocket接続（再接続ロジック付き）
-  useEffect(() => {
-    if (!WS_URL || !roomId) return
-
-    let reconnectAttempts = 0
-    let reconnectTimer: ReturnType<typeof setTimeout> | null = null
-    let cancelled = false
-
-    const connect = () => {
-      if (cancelled) return
-
-      const ws = new WebSocket(WS_URL)
-      wsRef.current = ws
-
-      ws.addEventListener('open', () => {
-        reconnectAttempts = 0
-        ws.send(JSON.stringify({
-          action: 'join_room',
-          data: { roomId, role: 'phone' },
-        }))
-      })
-
-      ws.addEventListener('close', () => {
-        if (cancelled) return
-        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000)
-        reconnectAttempts += 1
-        reconnectTimer = setTimeout(connect, delay)
-      })
-
-      ws.addEventListener('error', () => {
-        ws.close()
-      })
-    }
-
-    connect()
-
-    return () => {
-      cancelled = true
-      if (reconnectTimer) clearTimeout(reconnectTimer)
-      wsRef.current?.close()
-      wsRef.current = null
-    }
-  }, [roomId])
-
-  // WebRTCでカメラ映像をPCに送信（hookを使用）
-  useWebRtc({
-    wsRef,
-    roomId,
-    role: 'phone',
-    localStream: stream,
-  })
-
   const sendSync = useCallback(
     (event: string, extra?: Record<string, unknown>) => {
-      const ws = wsRef.current
-      if (!ws || ws.readyState !== WebSocket.OPEN || !roomId) return
-      ws.send(JSON.stringify({
-        action: 'shooting_sync',
-        data: { roomId, event, ...extra },
-      }))
+      if (!roomId) return
+      send('shooting_sync', { roomId, event, ...extra })
     },
-    [roomId],
+    [roomId, send],
   )
 
   const shootSequence = useCallback(async () => {
@@ -99,7 +42,6 @@ export function ShootView() {
     sendSync('shooting_start', { totalPhotos: TOTAL_PHOTOS })
 
     for (let i = photoCount; i < TOTAL_PHOTOS; i++) {
-      // カウントダウン: 1秒ずつ同期イベントを送信
       sendSync('countdown', { photoIndex: i, count: 3 })
 
       await startCountdown(3)
