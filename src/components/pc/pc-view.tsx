@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { useShootingSync } from '@/hooks/use-shooting-sync'
+import { useWebRtc } from '@/hooks/use-webrtc'
 import { useRoomStore } from '@/stores/room-store'
 import { useWsStore } from '@/stores/ws-store'
 
@@ -34,6 +35,13 @@ export function PcView() {
   useEffect(() => {
     wsRef.current = ws
   }, [ws])
+
+  // WebRTC（PC側：受信のみ）
+  const { remoteStream } = useWebRtc({
+    wsRef,
+    roomId,
+    role: 'pc',
+  })
 
   // WebSocketメッセージリスナー
   useEffect(() => {
@@ -121,7 +129,7 @@ export function PcView() {
     case 'preview':
       return (
         <ShootingScreen
-          remoteStream={null}
+          remoteStream={remoteStream}
           wsRef={wsRef}
           countdownValue={countdownValue}
           lastShutterIndex={lastShutterIndex}

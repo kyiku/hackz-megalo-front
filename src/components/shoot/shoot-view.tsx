@@ -1,11 +1,12 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { StepIndicator } from '@/components/ui/step-indicator'
 import { useCamera } from '@/hooks/use-camera'
 import { useCountdown } from '@/hooks/use-countdown'
+import { useWebRtc } from '@/hooks/use-webrtc'
 import { useRoomStore } from '@/stores/room-store'
 import { useSessionStore } from '@/stores/session-store'
 import { useWsStore } from '@/stores/ws-store'
@@ -17,15 +18,29 @@ const TOTAL_PHOTOS = 4
 
 export function ShootView() {
   const router = useRouter()
-  const { videoRef, isReady, error, capture } = useCamera()
+  const { videoRef, isReady, error, capture, stream } = useCamera()
   const { count, isRunning, start: startCountdown } = useCountdown()
   const { filter, addPhoto, photos } = useSessionStore()
   const { roomId } = useRoomStore()
-  const { send } = useWsStore()
+  const { ws, send } = useWsStore()
   const [flashTrigger, setFlashTrigger] = useState(0)
   const isShootingRef = useRef(false)
+  const wsRef = useRef<WebSocket | null>(null)
 
   const photoCount = photos.length
+
+  // ws-storeのwsをwsRefに同期（useWebRtc hookに渡すため）
+  useEffect(() => {
+    wsRef.current = ws
+  }, [ws])
+
+  // WebRTCでカメラ映像をPCに送信
+  useWebRtc({
+    wsRef,
+    roomId,
+    role: 'phone',
+    localStream: stream,
+  })
 
   const sendSync = useCallback(
     (event: string, extra?: Record<string, unknown>) => {
