@@ -1,5 +1,8 @@
 'use client'
 
+import { Button } from '@/components/ui/button'
+import { usePrinterStore } from '@/stores/printer-store'
+
 import { QrDisplay } from './qr-display'
 
 type IdleScreenProps = {
@@ -7,6 +10,8 @@ type IdleScreenProps = {
 }
 
 export function IdleScreen({ roomId }: IdleScreenProps) {
+  const { isConnected, connect } = usePrinterStore()
+
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center px-8">
       <div className="flex flex-col items-center gap-10">
@@ -19,6 +24,17 @@ export function IdleScreen({ roomId }: IdleScreenProps) {
             サーマルプリンターで印刷するレトロなプリクラ体験
           </p>
         </header>
+
+        {/* プリンター接続 */}
+        <div className="flex items-center gap-3">
+          {isConnected ? (
+            <p className="receipt-text text-xs text-mint">プリンター接続済み</p>
+          ) : (
+            <Button variant="secondary" size="sm" onClick={() => void connect()}>
+              プリンター接続
+            </Button>
+          )}
+        </div>
 
         <div className="receipt-texture border border-cream-dark p-6 shadow-sm">
           <QrDisplay roomId={roomId} />
