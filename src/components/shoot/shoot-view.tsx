@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 
 import { StepIndicator } from '@/components/ui/step-indicator'
 import { useCamera } from '@/hooks/use-camera'
@@ -45,11 +45,10 @@ export function ShootView() {
     router.push('/preview')
   }, [photoCount, startCountdown, capture, addPhoto, router])
 
-  useEffect(() => {
-    if (!filter) {
-      router.replace('/filter')
-    }
-  }, [filter, router])
+  if (!filter) {
+    router.replace('/filter')
+    return null
+  }
 
   if (error) {
     return (
@@ -91,6 +90,7 @@ export function ShootView() {
         {isReady && !isRunning && photoCount < TOTAL_PHOTOS && (
           <button
             type="button"
+            aria-label="撮影開始"
             onClick={shootSequence}
             className="flex h-16 w-16 items-center justify-center rounded-full border-4 border-white/90 bg-white/20 transition-transform active:scale-90"
           >

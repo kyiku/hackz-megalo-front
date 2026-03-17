@@ -74,6 +74,7 @@ export function Toolbar({
               <button
                 key={c}
                 type="button"
+                aria-label={`ペン色: ${c}`}
                 onClick={() => onPenColorChange(c)}
                 className={[
                   'h-7 w-7 rounded-full border transition-transform',
@@ -88,6 +89,7 @@ export function Toolbar({
               <button
                 key={s}
                 type="button"
+                aria-label={`ペンサイズ: ${s}px`}
                 onClick={() => onPenSizeChange(s)}
                 className={[
                   'flex h-7 w-7 items-center justify-center transition-all',
@@ -134,6 +136,7 @@ export function Toolbar({
               <button
                 key={c}
                 type="button"
+                aria-label={`テキスト色: ${c}`}
                 onClick={() => onTextColorChange(c)}
                 className={[
                   'h-7 w-7 rounded-full border transition-transform',
