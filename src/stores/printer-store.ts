@@ -65,12 +65,24 @@ async function imageUrlToMonoBitmap(imageUrl: string): Promise<{ data: Uint8Arra
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
 
+  // サーマルプリンター用の明るさ・コントラスト補正
+  const BRIGHTNESS = 40   // 明るさ加算 (0-255)
+  const CONTRAST = 1.3    // コントラスト倍率 (1.0 = 変化なし)
+
   const pixels = new Float32Array(imageData.data.length / 4)
   for (let i = 0; i < pixels.length; i++) {
     const r = imageData.data[i * 4] ?? 0
     const g = imageData.data[i * 4 + 1] ?? 0
     const b = imageData.data[i * 4 + 2] ?? 0
-    pixels[i] = 0.299 * r + 0.587 * g + 0.114 * b
+    let gray = 0.299 * r + 0.587 * g + 0.114 * b
+
+    // 明るさ補正
+    gray = gray + BRIGHTNESS
+
+    // コントラスト補正（128を中心に拡張）
+    gray = (gray - 128) * CONTRAST + 128
+
+    pixels[i] = Math.max(0, Math.min(255, gray))
   }
 
   const w = canvas.width
