@@ -13,64 +13,61 @@ type ResultViewProps = {
 
 export function ResultView({ sessionId }: ResultViewProps) {
   // TODO: sessionId でバックエンドから結果を取得
-  // 現在はデモ用プレースホルダー
   const collageUrl: string | null = null
   const caption = 'みんなの笑顔が最高にキュートだね！'
 
   return (
     <PageContainer className="flex flex-col items-center gap-6">
-      <h1 className="pukkuri-text font-display text-2xl text-pink">できた！</h1>
+      <header>
+        <p className="receipt-text text-[10px] tracking-[0.3em] text-ink-light">COMPLETE</p>
+        <h1 className="mt-1 text-xl font-bold tracking-tight">できた！</h1>
+      </header>
 
-      <ReceiptFrame className="w-full overflow-hidden">
-        <div className="receipt-text px-4 pt-3 text-center">
-          <p className="text-xs text-ink-light tracking-widest">━━━━━━━━━━━━━━━━━━</p>
-          <p className="mt-1 text-sm font-bold">RECEIPT PURIKURA</p>
-          <p className="text-[10px] text-ink-light">SESSION: {sessionId}</p>
-          <p className="mt-1 text-xs text-ink-light tracking-widest">━━━━━━━━━━━━━━━━━━</p>
+      <ReceiptFrame className="w-full overflow-hidden px-5 py-5">
+        <div className="receipt-text text-center text-ink">
+          <p className="text-[10px] tracking-[0.3em] text-ink-light">*** RESULT ***</p>
+          <div className="my-2 border-t border-dashed border-ink-light/30" />
+          <p className="text-xs font-bold">RECEIPT PURIKURA</p>
+          <p className="font-mono text-[10px] text-ink-light">No. {sessionId}</p>
+          <div className="my-2 border-t border-dashed border-ink-light/30" />
         </div>
 
         {/* コラージュ画像 */}
-        <div className="relative mx-4 mt-3 aspect-square rounded-lg border-2 border-dashed border-cream-dark bg-cream-dark/30">
+        <div className="relative aspect-square border border-dashed border-ink-light/30 bg-cream-dark/20">
           {collageUrl ? (
             <Image
               src={collageUrl}
               alt="コラージュ"
               fill
-              className="rounded-lg object-cover"
+              className="object-cover"
               unoptimized
             />
           ) : (
-            <div className="flex h-full items-center justify-center text-ink-light">
-              <div className="text-center">
-                <p className="text-4xl">🖼️</p>
-                <p className="mt-2 text-xs">コラージュ画像</p>
-                <p className="text-[10px]">(バックエンド接続後に表示)</p>
+            <div className="flex h-full items-center justify-center">
+              <div className="receipt-text text-center text-ink-light">
+                <p className="text-xs">[ コラージュ画像 ]</p>
+                <p className="mt-1 text-[10px]">バックエンド接続後に表示</p>
               </div>
             </div>
           )}
         </div>
 
         {/* AIキャプション */}
-        <div className="mx-4 mt-3 rounded-xl bg-pink/5 p-3">
-          <p className="text-center text-sm font-bold text-ink">
-            <span className="text-pink">AI</span> &quot;{caption}&quot;
-          </p>
+        <div className="mt-3 border-t border-dashed border-ink-light/30 pt-3">
+          <p className="receipt-text text-xs text-ink-light">CAPTION:</p>
+          <p className="mt-1 text-sm leading-relaxed">&quot;{caption}&quot;</p>
         </div>
 
-        <div className="px-4 pb-3 pt-3 text-center">
-          <p className="receipt-text text-xs text-ink-light tracking-widest">━━━━━━━━━━━━━━━━━━</p>
-          <p className="mt-1 font-mono text-[10px] text-ink-light">
-            レシートのQRコードから
-          </p>
+        <div className="mt-3 border-t border-dashed border-ink-light/30 pt-2 text-center">
           <p className="font-mono text-[10px] text-ink-light">
-            カラー版をダウンロードできます
+            レシートのQRからカラー版DL可
           </p>
         </div>
       </ReceiptFrame>
 
       <div className="flex w-full flex-col gap-3">
         <Button size="lg" className="w-full" disabled={!collageUrl}>
-          画像を保存する
+          画像を保存
         </Button>
 
         <Link href="/filter" className="w-full">

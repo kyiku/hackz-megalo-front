@@ -50,24 +50,21 @@ export function ProcessingView({ sessionId }: ProcessingViewProps) {
     <PageContainer className="flex flex-col items-center justify-center gap-8">
       <ReceiptPrinterAnimation />
 
-      <ReceiptFrame className="w-full p-5">
-        <div className="receipt-text text-center">
-          <p className="text-xs text-ink-light tracking-widest">━━━━━━━━━━━━━━━━━━</p>
-          <p className="mt-2 text-sm font-bold">処理中...</p>
-          <p className="mb-2 text-xs text-ink-light">レシートを準備しています</p>
-          <p className="text-xs text-ink-light tracking-widest">━━━━━━━━━━━━━━━━━━</p>
+      <ReceiptFrame className="w-full px-5 py-5">
+        <div className="receipt-text text-center text-ink">
+          <p className="text-[10px] tracking-[0.3em] text-ink-light">*** PROCESSING ***</p>
+          <div className="my-2 border-t border-dashed border-ink-light/30" />
+          <p className="text-xs font-bold">処理中</p>
+          <p className="text-[10px] text-ink-light">レシートを準備しています</p>
+          <div className="my-2 border-t border-dashed border-ink-light/30" />
         </div>
 
-        <div className="mt-4 border-t border-dashed border-cream-dark pt-4">
-          <ProcessingSteps currentStep={processingStep ?? 'uploading'} />
-        </div>
+        <ProcessingSteps currentStep={processingStep ?? 'uploading'} />
 
-        <div className="mt-4 border-t border-dashed border-cream-dark pt-3 text-center">
-          <p className="font-mono text-[10px] text-ink-light">SESSION: {sessionId}</p>
+        <div className="mt-3 border-t border-dashed border-ink-light/30 pt-2 text-center">
+          <p className="font-mono text-[10px] text-ink-light">No. {sessionId}</p>
         </div>
       </ReceiptFrame>
-
-      <p className="animate-pulse text-sm text-ink-light">しばらくお待ちください...</p>
     </PageContainer>
   )
 }

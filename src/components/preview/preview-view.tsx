@@ -40,14 +40,11 @@ export function PreviewView() {
 
   return (
     <PageContainer className="flex flex-col gap-6">
-      <ReceiptFrame className="px-4 py-3" showTornEdge={false}>
-        <div className="receipt-text text-center">
-          <p className="text-xs text-ink-light tracking-widest">━━━━━━━━━━━━━━━━━━</p>
-          <p className="mt-1 text-lg font-bold">プレビュー</p>
-          <p className="text-xs text-ink-light">タップで撮り直しできるよ</p>
-          <p className="mt-1 text-xs text-ink-light tracking-widest">━━━━━━━━━━━━━━━━━━</p>
-        </div>
-      </ReceiptFrame>
+      <header>
+        <p className="receipt-text text-[10px] tracking-[0.3em] text-ink-light">STEP 03</p>
+        <h1 className="mt-1 text-xl font-bold tracking-tight">プレビュー</h1>
+        <p className="mt-0.5 text-xs text-ink-light">タップで撮り直しできるよ</p>
+      </header>
 
       <ReceiptFrame className="p-3">
         <PhotoGrid photos={photos} onRetake={handleRetake} />
@@ -55,7 +52,7 @@ export function PreviewView() {
 
       <div className="flex flex-col gap-3">
         <Button size="lg" className="w-full" onClick={handleConfirm}>
-          OK! 印刷する 🖨️
+          OK! 印刷する
         </Button>
 
         <Button variant="secondary" size="md" className="w-full" onClick={handleRetakeAll}>
@@ -63,8 +60,8 @@ export function PreviewView() {
         </Button>
       </div>
 
-      <p className="receipt-text text-center text-xs text-ink-light">
-        フィルター: {filter?.value ?? '未選択'}
+      <p className="receipt-text text-center font-mono text-[10px] text-ink-light">
+        FILTER: {filter?.value ?? 'none'}
       </p>
     </PageContainer>
   )
