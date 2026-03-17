@@ -19,16 +19,18 @@ export function PcView() {
   const wsRef = useRef<WebSocket | null>(null)
   const [countdownValue, setCountdownValue] = useState<number | null>(null)
   const [lastShutterIndex, setLastShutterIndex] = useState<number | null>(null)
+  const initializedRef = useRef(false)
 
-  // ルーム作成 + WebSocket接続
+  // ルーム作成 + WebSocket接続（1回だけ実行）
   useEffect(() => {
-    if (!roomId) {
-      const newRoomId = createRoom()
-      connect(newRoomId, 'pc')
-    }
-  }, [roomId, createRoom, connect])
+    if (initializedRef.current) return
+    initializedRef.current = true
 
-  // wsRef を ws-store の ws に同期（既存hookとの互換性のため）
+    const id = roomId ?? createRoom()
+    connect(id, 'pc')
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // wsRef を ws-store の ws に同期
   useEffect(() => {
     wsRef.current = ws
   }, [ws])
