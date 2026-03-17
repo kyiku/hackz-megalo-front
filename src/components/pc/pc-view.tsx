@@ -31,14 +31,14 @@ export function PcView() {
     connect(id, 'pc')
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // wsRef を ws-store の ws に同期
+  // wsRef を ws に同期（useShootingSync互換のため残す）
   useEffect(() => {
     wsRef.current = ws
   }, [ws])
 
   // WebRTC（PC側：受信のみ）
   const { remoteStream } = useWebRtc({
-    wsRef,
+    ws,
     roomId,
     role: 'pc',
   })
