@@ -11,7 +11,7 @@ import { useRoomStore } from '@/stores/room-store'
 
 export function ResultScreen() {
   const { sessionId, setPhase } = useRoomStore()
-  const { isConnected: printerConnected, isPrinting, printImage } = usePrinterStore()
+  const { isConnected: printerConnected, isPrinting, printImage, lastError } = usePrinterStore()
   const [collageUrl, setCollageUrl] = useState<string | null>(null)
   const [caption, setCaption] = useState<string | null>(null)
   const [loading, setLoading] = useState(!!sessionId)
@@ -120,6 +120,12 @@ export function ResultScreen() {
             </div>
           )}
         </ReceiptFrame>
+
+        {lastError && (
+          <p className="mt-2 text-center receipt-text text-xs text-red">
+            印刷エラー: {lastError}
+          </p>
+        )}
 
         {isPrinting && (
           <p className="mt-4 text-center animate-pulse receipt-text text-sm text-ink-light">
