@@ -42,7 +42,7 @@ export function ShootingScreen({
         <h2 className="mt-1 text-2xl font-bold tracking-tight">撮影中</h2>
       </header>
 
-      <div className="relative aspect-video w-full max-w-3xl border border-cream-dark overflow-hidden">
+      <div className="relative aspect-[9/16] h-[70dvh] border border-cream-dark overflow-hidden">
         {remoteStream ? (
           <video
             ref={videoRef}
