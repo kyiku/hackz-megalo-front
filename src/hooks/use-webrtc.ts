@@ -14,10 +14,35 @@ type UseWebRtcOptions = {
 type UseWebRtcReturn = {
   readonly remoteStream: MediaStream | null
   readonly isConnected: boolean
+  readonly iceState: string | null
 }
 
 const RTC_CONFIG: RTCConfiguration = {
-  iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    {
+      urls: 'turn:global.relay.metered.ca:80',
+      username: process.env.NEXT_PUBLIC_TURN_USERNAME ?? '',
+      credential: process.env.NEXT_PUBLIC_TURN_CREDENTIAL ?? '',
+    },
+    {
+      urls: 'turn:global.relay.metered.ca:80?transport=tcp',
+      username: process.env.NEXT_PUBLIC_TURN_USERNAME ?? '',
+      credential: process.env.NEXT_PUBLIC_TURN_CREDENTIAL ?? '',
+    },
+    {
+      urls: 'turn:global.relay.metered.ca:443',
+      username: process.env.NEXT_PUBLIC_TURN_USERNAME ?? '',
+      credential: process.env.NEXT_PUBLIC_TURN_CREDENTIAL ?? '',
+    },
+    {
+      urls: 'turns:global.relay.metered.ca:443?transport=tcp',
+      username: process.env.NEXT_PUBLIC_TURN_USERNAME ?? '',
+      credential: process.env.NEXT_PUBLIC_TURN_CREDENTIAL ?? '',
+    },
+  ],
 }
 
 export function useWebRtc({
@@ -30,6 +55,7 @@ export function useWebRtc({
   const iceCandidateQueueRef = useRef<RTCIceCandidateInit[]>([])
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
   const [isConnected, setIsConnected] = useState(false)
+  const [iceState, setIceState] = useState<string | null>(null)
 
   const closePeerConnection = useCallback(() => {
     pcRef.current?.close()
@@ -80,6 +106,10 @@ export function useWebRtc({
 
     pc.onconnectionstatechange = () => {
       setIsConnected(pc.connectionState === 'connected')
+    }
+
+    pc.oniceconnectionstatechange = () => {
+      setIceState(pc.iceConnectionState)
     }
 
     if (localStream) {
@@ -201,5 +231,5 @@ export function useWebRtc({
     }
   }, [closePeerConnection])
 
-  return { remoteStream, isConnected }
+  return { remoteStream, isConnected, iceState }
 }
