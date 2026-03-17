@@ -5,19 +5,31 @@ import { useCallback } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { AI_FILTERS, type FilterId, type FilterInfo, SIMPLE_FILTERS } from '@/lib/filters'
+import { useRoomStore } from '@/stores/room-store'
 import { useSessionStore } from '@/stores/session-store'
+import { useWsStore } from '@/stores/ws-store'
 
 import { FilterCard } from './filter-card'
 
 export function FilterList() {
   const router = useRouter()
   const { filter, setFilter } = useSessionStore()
+  const { roomId } = useRoomStore()
+  const { send } = useWsStore()
 
   const handleSelect = useCallback(
     (filterInfo: FilterInfo) => {
       setFilter({ type: filterInfo.type, value: filterInfo.id })
+
+      if (roomId) {
+        send('shooting_sync', {
+          roomId,
+          event: 'filter_select',
+          filterId: filterInfo.id,
+        })
+      }
     },
-    [setFilter],
+    [setFilter, roomId, send],
   )
 
   const handleStart = useCallback(() => {
