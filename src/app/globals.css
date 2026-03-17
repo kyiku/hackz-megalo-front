@@ -75,3 +75,10 @@ body {
   0% { right: -100%; }
   100% { right: 110%; }
 }
+
+/* 印刷時はコラージュ画像のみ表示 */
+@media print {
+  body { background: white; }
+  .print\:hidden { display: none !important; }
+  .print\:border-none { border: none !important; }
+}

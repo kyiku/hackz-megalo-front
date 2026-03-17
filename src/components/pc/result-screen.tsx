@@ -1,17 +1,19 @@
 'use client'
 
 import Image from 'next/image'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import { getSession } from '@/lib/api/sessions'
+import { Button } from '@/components/ui/button'
 import { ReceiptFrame } from '@/components/ui/receipt-frame'
 import { useRoomStore } from '@/stores/room-store'
 
 export function ResultScreen() {
-  const { sessionId } = useRoomStore()
+  const { sessionId, setPhase } = useRoomStore()
   const [collageUrl, setCollageUrl] = useState<string | null>(null)
   const [caption, setCaption] = useState<string | null>(null)
   const [loading, setLoading] = useState(!!sessionId)
+  const [printed, setPrinted] = useState(false)
 
   useEffect(() => {
     if (!sessionId) return
@@ -31,7 +33,6 @@ export function ResultScreen() {
           return
         }
 
-        // まだ完了していない場合はリトライ
         if (retryCount < 10) {
           retryCount += 1
           setTimeout(() => { void fetchResult() }, 2000)
@@ -54,10 +55,19 @@ export function ResultScreen() {
     return () => { cancelled = true }
   }, [sessionId])
 
+  const handlePrint = useCallback(() => {
+    window.print()
+    setPrinted(true)
+  }, [])
+
+  const handleComplete = useCallback(() => {
+    setPhase('complete')
+  }, [setPhase])
+
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center px-8">
       <div className="w-full max-w-lg">
-        <header className="mb-6 text-center">
+        <header className="mb-6 text-center print:hidden">
           <p className="receipt-text text-[10px] tracking-[0.3em] text-ink-light">
             *** RESULT ***
           </p>
@@ -65,7 +75,7 @@ export function ResultScreen() {
         </header>
 
         <ReceiptFrame className="px-5 py-5" showTornEdge={false}>
-          <div className="relative aspect-square w-full border border-dashed border-ink-light/30 bg-cream-dark/20">
+          <div className="relative aspect-square w-full border border-dashed border-ink-light/30 bg-cream-dark/20 print:border-none">
             {collageUrl ? (
               <Image src={collageUrl} alt="コラージュ" fill className="object-cover" unoptimized />
             ) : (
@@ -85,12 +95,26 @@ export function ResultScreen() {
           </div>
 
           {caption && (
-            <div className="mt-4 border-t border-dashed border-ink-light/30 pt-3">
+            <div className="mt-4 border-t border-dashed border-ink-light/30 pt-3 print:border-none">
               <p className="receipt-text text-[10px] text-ink-light">CAPTION:</p>
               <p className="mt-1 text-center text-sm leading-relaxed">&quot;{caption}&quot;</p>
             </div>
           )}
         </ReceiptFrame>
+
+        {collageUrl && (
+          <div className="mt-6 flex flex-col gap-3 print:hidden">
+            <Button size="lg" className="w-full" onClick={handlePrint}>
+              {printed ? 'もう一度印刷' : '印刷する'}
+            </Button>
+
+            {printed && (
+              <Button variant="secondary" size="md" className="w-full" onClick={handleComplete}>
+                次のお客さんへ
+              </Button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
