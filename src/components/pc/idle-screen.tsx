@@ -8,21 +8,23 @@ type IdleScreenProps = {
 
 export function IdleScreen({ roomId }: IdleScreenProps) {
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center bg-ink px-8">
-      <div className="flex flex-col items-center gap-8">
+    <div className="flex min-h-dvh flex-col items-center justify-center px-8">
+      <div className="flex flex-col items-center gap-10">
         <header className="text-center">
-          <p className="font-mono text-xs tracking-[0.3em] text-white/40">*** RECEIPT PURIKURA ***</p>
-          <h1 className="mt-3 font-display text-4xl tracking-wide text-white">レシートプリクラ</h1>
-          <p className="mt-1 font-mono text-sm text-white/50">
+          <p className="receipt-text text-[10px] tracking-[0.3em] text-ink-light">
+            *** RECEIPT PURIKURA ***
+          </p>
+          <h1 className="mt-2 text-4xl font-bold tracking-tight text-ink">レシートプリクラ</h1>
+          <p className="mt-1 receipt-text text-sm text-ink-light">
             サーマルプリンターで印刷するレトロなプリクラ体験
           </p>
         </header>
 
-        <QrDisplay roomId={roomId} />
-
-        <div className="receipt-text text-center text-white/30">
-          <p className="text-xs">スマホが接続されると撮影が始まります</p>
+        <div className="receipt-texture border border-cream-dark p-6 shadow-sm">
+          <QrDisplay roomId={roomId} />
         </div>
+
+        <p className="receipt-text text-xs text-ink-light">スマホが接続されると撮影が始まります</p>
       </div>
     </div>
   )
