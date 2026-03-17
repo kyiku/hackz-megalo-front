@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 type WebRtcRole = 'phone' | 'pc'
 
@@ -22,26 +22,6 @@ const RTC_CONFIG: RTCConfiguration = {
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
-    {
-      urls: 'turn:global.relay.metered.ca:80',
-      username: process.env.NEXT_PUBLIC_TURN_USERNAME ?? '',
-      credential: process.env.NEXT_PUBLIC_TURN_CREDENTIAL ?? '',
-    },
-    {
-      urls: 'turn:global.relay.metered.ca:80?transport=tcp',
-      username: process.env.NEXT_PUBLIC_TURN_USERNAME ?? '',
-      credential: process.env.NEXT_PUBLIC_TURN_CREDENTIAL ?? '',
-    },
-    {
-      urls: 'turn:global.relay.metered.ca:443',
-      username: process.env.NEXT_PUBLIC_TURN_USERNAME ?? '',
-      credential: process.env.NEXT_PUBLIC_TURN_CREDENTIAL ?? '',
-    },
-    {
-      urls: 'turns:global.relay.metered.ca:443?transport=tcp',
-      username: process.env.NEXT_PUBLIC_TURN_USERNAME ?? '',
-      credential: process.env.NEXT_PUBLIC_TURN_CREDENTIAL ?? '',
-    },
   ],
 }
 
@@ -51,185 +31,153 @@ export function useWebRtc({
   role,
   localStream,
 }: UseWebRtcOptions): UseWebRtcReturn {
-  const pcRef = useRef<RTCPeerConnection | null>(null)
-  const iceCandidateQueueRef = useRef<RTCIceCandidateInit[]>([])
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
   const [isConnected, setIsConnected] = useState(false)
   const [iceState, setIceState] = useState<string | null>(null)
+  const pcRef = useRef<RTCPeerConnection | null>(null)
+  const iceCandidateQueueRef = useRef<RTCIceCandidateInit[]>([])
 
-  const closePeerConnection = useCallback(() => {
-    pcRef.current?.close()
-    pcRef.current = null
-    iceCandidateQueueRef.current = []
-  }, [])
+  // 全てのロジックを1つのuseEffectに集約
+  useEffect(() => {
+    if (!ws || ws.readyState !== WebSocket.OPEN || !roomId) return
 
-  const sendSignaling = useCallback(
-    (action: string, data: Record<string, unknown>) => {
-      if (!ws || ws.readyState !== WebSocket.OPEN || !roomId) return
-      ws.send(JSON.stringify({ action, data: { ...data, roomId } }))
-    },
-    [ws, roomId],
-  )
+    const sendSignal = (action: string, data: Record<string, unknown>) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ action, data: { ...data, roomId } }))
+      }
+    }
 
-  const flushIceCandidateQueue = useCallback(async (pc: RTCPeerConnection) => {
-    const queue = iceCandidateQueueRef.current
-    iceCandidateQueueRef.current = []
-    for (const candidate of queue) {
-      try {
-        await pc.addIceCandidate(new RTCIceCandidate(candidate))
-      } catch (err) {
-        if (process.env.NODE_ENV === 'development') {
-          console.error('Failed to add queued ICE candidate:', err)
+    const createPC = (): RTCPeerConnection => {
+      pcRef.current?.close()
+
+      const pc = new RTCPeerConnection(RTC_CONFIG)
+      pcRef.current = pc
+
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          sendSignal('webrtc_ice', { candidate: JSON.stringify(event.candidate) })
         }
       }
+
+      pc.ontrack = (event) => {
+        const stream = event.streams[0]
+        if (stream) setRemoteStream(stream)
+      }
+
+      pc.onconnectionstatechange = () => {
+        setIsConnected(pc.connectionState === 'connected')
+      }
+
+      pc.oniceconnectionstatechange = () => {
+        setIceState(pc.iceConnectionState)
+      }
+
+      if (localStream) {
+        localStream.getTracks().forEach((track) => {
+          pc.addTrack(track, localStream)
+        })
+      }
+
+      return pc
     }
-  }, [])
 
-  const createPeerConnection = useCallback(() => {
-    closePeerConnection()
-
-    const pc = new RTCPeerConnection(RTC_CONFIG)
-    pcRef.current = pc
-
-    pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        sendSignaling('webrtc_ice', { candidate: JSON.stringify(event.candidate) })
+    const flushQueue = async (pc: RTCPeerConnection) => {
+      const queue = iceCandidateQueueRef.current
+      iceCandidateQueueRef.current = []
+      for (const candidate of queue) {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate))
+        } catch { /* ignore */ }
       }
     }
 
-    pc.ontrack = (event) => {
-      const stream = event.streams[0]
-      if (stream) {
-        setRemoteStream(stream)
-      }
-    }
-
-    pc.onconnectionstatechange = () => {
-      setIsConnected(pc.connectionState === 'connected')
-    }
-
-    pc.oniceconnectionstatechange = () => {
-      setIceState(pc.iceConnectionState)
-    }
-
-    if (localStream) {
-      localStream.getTracks().forEach((track) => {
-        pc.addTrack(track, localStream)
-      })
-    }
-
-    return pc
-  }, [localStream, sendSignaling, closePeerConnection])
-
-  const handleOffer = useCallback(
-    async (sdp: string) => {
+    const handleMessage = async (event: MessageEvent) => {
+      let msg: { type: string; data: { sdp?: string; candidate?: string } }
       try {
-        const pc = createPeerConnection()
-        await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp }))
-        await flushIceCandidateQueue(pc)
-        const answer = await pc.createAnswer()
-        await pc.setLocalDescription(answer)
-        sendSignaling('webrtc_answer', { sdp: answer.sdp })
-      } catch (err) {
-        if (process.env.NODE_ENV === 'development') {
-          console.error('Failed to handle WebRTC offer:', err)
-        }
-      }
-    },
-    [createPeerConnection, sendSignaling, flushIceCandidateQueue],
-  )
-
-  const handleAnswer = useCallback(async (sdp: string) => {
-    try {
-      const pc = pcRef.current
-      if (!pc) return
-      await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp }))
-      await flushIceCandidateQueue(pc)
-    } catch (err) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to handle WebRTC answer:', err)
-      }
-    }
-  }, [flushIceCandidateQueue])
-
-  const handleIce = useCallback(async (candidateStr: string) => {
-    try {
-      const candidate = JSON.parse(candidateStr) as RTCIceCandidateInit
-      const pc = pcRef.current
-      if (!pc || !pc.remoteDescription) {
-        iceCandidateQueueRef.current = [...iceCandidateQueueRef.current, candidate]
+        msg = JSON.parse(event.data as string)
+      } catch {
         return
       }
-      await pc.addIceCandidate(new RTCIceCandidate(candidate))
-    } catch (err) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to add ICE candidate:', err)
-      }
-    }
-  }, [])
 
-  const startCall = useCallback(async () => {
-    try {
-      const pc = createPeerConnection()
-      const offer = await pc.createOffer()
-      await pc.setLocalDescription(offer)
-      sendSignaling('webrtc_offer', { sdp: offer.sdp })
-    } catch (err) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to start WebRTC call:', err)
-      }
-    }
-  }, [createPeerConnection, sendSignaling])
-
-  // WebSocketメッセージをリッスン（wsが変わると再登録）
-  useEffect(() => {
-    if (!ws || !roomId) return
-
-    const handler = (event: MessageEvent) => {
-      try {
-        const msg = JSON.parse(event.data as string) as {
-          type: string
-          data: { sdp?: string; candidate?: string }
-        }
-
-        if (msg.type === 'webrtc_offer' && role === 'pc') {
-          void handleOffer(msg.data.sdp ?? '')
-        }
-        if (msg.type === 'webrtc_answer' && role === 'phone') {
-          void handleAnswer(msg.data.sdp ?? '')
-        }
-        if (msg.type === 'webrtc_ice') {
-          void handleIce(msg.data.candidate ?? '')
-        }
-      } catch (err) {
-        if (process.env.NODE_ENV === 'development') {
-          console.error('Failed to parse WebRTC signaling:', err)
+      // PC側: offerを受信 → answer返す
+      if (msg.type === 'webrtc_offer' && role === 'pc') {
+        try {
+          const pc = createPC()
+          await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: msg.data.sdp ?? '' }))
+          await flushQueue(pc)
+          const answer = await pc.createAnswer()
+          await pc.setLocalDescription(answer)
+          sendSignal('webrtc_answer', { sdp: answer.sdp })
+        } catch (err) {
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Failed to handle offer:', err)
+          }
         }
       }
+
+      // スマホ側: answerを受信
+      if (msg.type === 'webrtc_answer' && role === 'phone') {
+        try {
+          const pc = pcRef.current
+          if (pc) {
+            await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: msg.data.sdp ?? '' }))
+            await flushQueue(pc)
+          }
+        } catch (err) {
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Failed to handle answer:', err)
+          }
+        }
+      }
+
+      // ICE candidate
+      if (msg.type === 'webrtc_ice') {
+        try {
+          const candidate = JSON.parse(msg.data.candidate ?? '{}') as RTCIceCandidateInit
+          const pc = pcRef.current
+          if (pc?.remoteDescription) {
+            await pc.addIceCandidate(new RTCIceCandidate(candidate))
+          } else {
+            iceCandidateQueueRef.current = [...iceCandidateQueueRef.current, candidate]
+          }
+        } catch (err) {
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Failed to handle ICE:', err)
+          }
+        }
+      }
     }
 
-    ws.addEventListener('message', handler)
-    return () => ws.removeEventListener('message', handler)
-  }, [ws, roomId, role, handleOffer, handleAnswer, handleIce])
+    ws.addEventListener('message', handleMessage)
 
-  // スマホ側: WebSocket接続後にオファー送信
-  useEffect(() => {
-    if (role !== 'phone' || !roomId || !localStream) return
-    if (!ws || ws.readyState !== WebSocket.OPEN) return
+    // スマホ側: カメラ映像があればオファー送信
+    let startCallTimer: ReturnType<typeof setTimeout> | null = null
+    if (role === 'phone' && localStream) {
+      startCallTimer = setTimeout(async () => {
+        try {
+          const pc = createPC()
+          const offer = await pc.createOffer()
+          await pc.setLocalDescription(offer)
+          sendSignal('webrtc_offer', { sdp: offer.sdp })
+        } catch (err) {
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Failed to start call:', err)
+          }
+        }
+      }, 500)
+    }
 
-    const timer = setTimeout(() => {
-      void startCall()
-    }, 1000)
-
-    return () => clearTimeout(timer)
-  }, [role, roomId, localStream, ws, startCall])
-
-  // クリーンアップ
-  useEffect(() => {
     return () => {
-      closePeerConnection()
+      ws.removeEventListener('message', handleMessage)
+      if (startCallTimer) clearTimeout(startCallTimer)
+      pcRef.current?.close()
+      pcRef.current = null
+      iceCandidateQueueRef.current = []
+      setRemoteStream(null)
+      setIsConnected(false)
+      setIceState(null)
     }
-  }, [closePeerConnection])
+  }, [ws, roomId, role, localStream])
 
   return { remoteStream, isConnected, iceState }
 }
