@@ -1,8 +1,10 @@
 import type { ApiResponse } from './types'
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  'https://j9q5u6tn5k.execute-api.ap-northeast-1.amazonaws.com/dev'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL
+
+if (!API_BASE_URL) {
+  throw new Error('NEXT_PUBLIC_API_BASE_URL is not configured')
+}
 
 export async function apiRequest<T>(
   path: string,

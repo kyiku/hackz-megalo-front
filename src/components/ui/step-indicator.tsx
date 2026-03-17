@@ -8,7 +8,7 @@ type StepIndicatorProps = {
 
 export function StepIndicator({ current, total, className = '' }: StepIndicatorProps) {
   return (
-    <div className={`flex items-center gap-2 ${className}`} role="progressbar" aria-valuenow={current} aria-valuemin={1} aria-valuemax={total}>
+    <div className={`flex items-center gap-2 ${className}`} role="progressbar" aria-valuenow={current} aria-valuemin={0} aria-valuemax={total}>
       {Array.from({ length: total }, (_, i) => (
         <div
           key={i}

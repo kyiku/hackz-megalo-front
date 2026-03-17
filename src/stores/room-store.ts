@@ -38,11 +38,9 @@ const initialState: RoomState = {
 
 function generateRoomId(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-  let result = ''
-  for (let i = 0; i < 6; i++) {
-    result += chars[Math.floor(Math.random() * chars.length)]
-  }
-  return result
+  const array = new Uint8Array(6)
+  crypto.getRandomValues(array)
+  return Array.from(array, (byte) => chars[byte % chars.length]).join('')
 }
 
 export const useRoomStore = create<RoomState & RoomActions>()((set) => ({

@@ -1,10 +1,12 @@
 'use client'
 
-import { use, useEffect, useState } from 'react'
+import { notFound } from 'next/navigation'
 import { useRouter } from 'next/navigation'
+import { use, useEffect, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { PageContainer } from '@/components/ui/page-container'
+import { isValidRoomId } from '@/lib/validation'
 import { useRoomStore } from '@/stores/room-store'
 
 type Props = {
@@ -13,6 +15,7 @@ type Props = {
 
 export default function RoomJoinPage({ params }: Props) {
   const { roomId } = use(params)
+  if (!isValidRoomId(roomId)) notFound()
   const router = useRouter()
   const { joinRoom } = useRoomStore()
   // TODO: バックエンド接続後にエラー/満員状態を設定
