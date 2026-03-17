@@ -54,11 +54,16 @@ export async function startProcessing(sessionId: string): Promise<ProcessStartRe
   return result.data
 }
 
-export async function uploadPhoto(uploadUrl: string, photoBlob: Blob): Promise<void> {
+export async function uploadPhoto(
+  uploadUrl: string,
+  photoBlob: Blob,
+  signal?: AbortSignal,
+): Promise<void> {
   const response = await fetch(uploadUrl, {
     method: 'PUT',
     body: photoBlob,
     headers: { 'Content-Type': 'image/jpeg' },
+    signal,
   })
 
   if (!response.ok) {
