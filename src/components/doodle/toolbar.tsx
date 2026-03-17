@@ -46,6 +46,7 @@ export function Toolbar({
           <button
             key={t}
             type="button"
+            aria-label={`ツール: ${TOOL_LABELS[t]}`}
             onClick={() => onToolChange(t)}
             className={[
               'flex-1 py-1.5 text-xs font-bold transition-all',
@@ -59,6 +60,7 @@ export function Toolbar({
         ))}
         <button
           type="button"
+          aria-label="戻す"
           onClick={onUndo}
           className="bg-cream-dark/50 px-3 py-1.5 text-xs font-bold text-ink-light hover:bg-cream-dark"
         >
@@ -113,6 +115,7 @@ export function Toolbar({
             <button
               key={s.id}
               type="button"
+              aria-label={`スタンプ: ${s.label}`}
               onClick={() => onStampChange(s.id)}
               className={[
                 'flex h-9 w-9 items-center justify-center transition-all',

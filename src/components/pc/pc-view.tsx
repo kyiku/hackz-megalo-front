@@ -61,8 +61,10 @@ export function PcView() {
             setPhase('preview')
           }
         }
-      } catch {
-        // ignore
+      } catch (err) {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Failed to parse WebSocket message:', err)
+        }
       }
     })
 
