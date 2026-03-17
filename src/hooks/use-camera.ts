@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 type UseCameraReturn = {
   readonly videoRef: React.RefObject<HTMLVideoElement | null>
+  readonly stream: MediaStream | null
   readonly isReady: boolean
   readonly error: string | null
   readonly capture: () => string | null
@@ -13,6 +14,7 @@ export function useCamera(): UseCameraReturn {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const [stream, setStream] = useState<MediaStream | null>(null)
   const [isReady, setIsReady] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -36,6 +38,7 @@ export function useCamera(): UseCameraReturn {
         }
 
         streamRef.current = stream
+        setStream(stream)
 
         if (videoRef.current) {
           videoRef.current.srcObject = stream
@@ -85,5 +88,5 @@ export function useCamera(): UseCameraReturn {
     return canvas.toDataURL('image/jpeg', 0.85)
   }, [])
 
-  return { videoRef, isReady, error, capture }
+  return { videoRef, stream, isReady, error, capture }
 }
