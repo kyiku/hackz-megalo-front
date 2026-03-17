@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 type WebRtcRole = 'phone' | 'pc'
 
 type UseWebRtcOptions = {
-  readonly wsRef: React.RefObject<WebSocket | null>
+  readonly ws: WebSocket | null
   readonly roomId: string | null
   readonly role: WebRtcRole
   readonly localStream?: MediaStream | null
@@ -21,7 +21,7 @@ const RTC_CONFIG: RTCConfiguration = {
 }
 
 export function useWebRtc({
-  wsRef,
+  ws,
   roomId,
   role,
   localStream,
@@ -39,11 +39,10 @@ export function useWebRtc({
 
   const sendSignaling = useCallback(
     (action: string, data: Record<string, unknown>) => {
-      const ws = wsRef.current
       if (!ws || ws.readyState !== WebSocket.OPEN || !roomId) return
       ws.send(JSON.stringify({ action, data: { ...data, roomId } }))
     },
-    [wsRef, roomId],
+    [ws, roomId],
   )
 
   const flushIceCandidateQueue = useCallback(async (pc: RTCPeerConnection) => {
@@ -128,7 +127,6 @@ export function useWebRtc({
       const candidate = JSON.parse(candidateStr) as RTCIceCandidateInit
       const pc = pcRef.current
       if (!pc || !pc.remoteDescription) {
-        // PCがまだ準備できていない場合はキューに入れる
         iceCandidateQueueRef.current = [...iceCandidateQueueRef.current, candidate]
         return
       }
@@ -153,9 +151,8 @@ export function useWebRtc({
     }
   }, [createPeerConnection, sendSignaling])
 
-  // WebSocketメッセージをリッスン
+  // WebSocketメッセージをリッスン（wsが変わると再登録）
   useEffect(() => {
-    const ws = wsRef.current
     if (!ws || !roomId) return
 
     const handler = (event: MessageEvent) => {
@@ -183,13 +180,11 @@ export function useWebRtc({
 
     ws.addEventListener('message', handler)
     return () => ws.removeEventListener('message', handler)
-  }, [wsRef, roomId, role, handleOffer, handleAnswer, handleIce])
+  }, [ws, roomId, role, handleOffer, handleAnswer, handleIce])
 
-  // スマホ側: ルーム参加後にオファー送信
+  // スマホ側: WebSocket接続後にオファー送信
   useEffect(() => {
     if (role !== 'phone' || !roomId || !localStream) return
-
-    const ws = wsRef.current
     if (!ws || ws.readyState !== WebSocket.OPEN) return
 
     const timer = setTimeout(() => {
@@ -197,7 +192,7 @@ export function useWebRtc({
     }, 1000)
 
     return () => clearTimeout(timer)
-  }, [role, roomId, localStream, wsRef, startCall])
+  }, [role, roomId, localStream, ws, startCall])
 
   // クリーンアップ
   useEffect(() => {
