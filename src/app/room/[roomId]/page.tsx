@@ -2,7 +2,7 @@
 
 import { notFound } from 'next/navigation'
 import { useRouter } from 'next/navigation'
-import { use, useEffect, useRef, useState } from 'react'
+import { use, useEffect, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { PageContainer } from '@/components/ui/page-container'
@@ -20,14 +20,10 @@ export default function RoomJoinPage({ params }: Props) {
   if (!isValidRoomId(roomId)) notFound()
   const router = useRouter()
   const { joinRoom } = useRoomStore()
-  const [status, setStatus] = useState<'connecting' | 'joined' | 'error' | 'full'>('connecting')
-  const statusRef = useRef(status)
+  const [status, setStatus] = useState<'connecting' | 'error' | 'full'>('connecting')
 
   useEffect(() => {
-    statusRef.current = status
-  }, [status])
-
-  useEffect(() => {
+    // WS_URL未設定時は即参加
     if (!WS_URL) {
       joinRoom(roomId, 'phone')
       router.replace('/filter')
@@ -37,53 +33,28 @@ export default function RoomJoinPage({ params }: Props) {
     const ws = new WebSocket(WS_URL)
 
     ws.addEventListener('open', () => {
+      // join_roomを送信して即参加・遷移
+      // バックエンドのws-join-roomはconnectionsテーブルに記録するだけで
+      // 明示的なレスポンスは返さないため、送信完了を以て参加とする
       ws.send(JSON.stringify({
         action: 'join_room',
         data: { roomId, role: 'phone' },
       }))
-    })
 
-    ws.addEventListener('message', (event) => {
-      try {
-        const msg = JSON.parse(event.data as string) as {
-          type: string
-          data: { error?: string }
-        }
-
-        if (msg.type === 'room_full') {
-          setStatus('full')
-          ws.close()
-          return
-        }
-
-        if (msg.type === 'room_not_found') {
-          setStatus('error')
-          ws.close()
-          return
-        }
-
-        joinRoom(roomId, 'phone')
-        setStatus('joined')
-        ws.close()
-        router.replace('/filter')
-      } catch (err) {
-        if (process.env.NODE_ENV === 'development') {
-          console.error('Failed to parse room join response:', err)
-        }
-      }
+      joinRoom(roomId, 'phone')
+      ws.close()
+      router.replace('/filter')
     })
 
     ws.addEventListener('error', () => {
       setStatus('error')
     })
 
+    // タイムアウト: 3秒以内にWebSocket接続できなければエラー
     const timeout = setTimeout(() => {
-      if (statusRef.current === 'connecting') {
-        joinRoom(roomId, 'phone')
-        ws.close()
-        router.replace('/filter')
-      }
-    }, 5000)
+      setStatus('error')
+      ws.close()
+    }, 3000)
 
     return () => {
       clearTimeout(timeout)
