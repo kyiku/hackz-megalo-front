@@ -32,6 +32,10 @@ export function PreviewView() {
     router.push('/shoot')
   }, [clearPhotos, router])
 
+  const handleDoodle = useCallback(() => {
+    router.push('/doodle')
+  }, [router])
+
   const handleConfirm = useCallback(() => {
     router.push('/processing/demo')
   }, [router])
@@ -51,13 +55,21 @@ export function PreviewView() {
       </ReceiptFrame>
 
       <div className="flex flex-col gap-3">
-        <Button size="lg" className="w-full" onClick={handleConfirm}>
-          OK! 印刷する
+        <Button size="lg" className="w-full" onClick={handleDoodle}>
+          落書きする
         </Button>
 
-        <Button variant="secondary" size="md" className="w-full" onClick={handleRetakeAll}>
-          全部撮り直す
+        <Button variant="secondary" size="md" className="w-full" onClick={handleConfirm}>
+          そのまま印刷する
         </Button>
+
+        <button
+          type="button"
+          onClick={handleRetakeAll}
+          className="text-center text-sm text-ink-light"
+        >
+          全部撮り直す
+        </button>
       </div>
 
       <p className="receipt-text text-center font-mono text-[10px] text-ink-light">
