@@ -55,14 +55,26 @@ async function imageUrlToMonoBitmap(imageUrl: string): Promise<{ data: Uint8Arra
   })
 
   const canvas = document.createElement('canvas')
-  const scale = PRINTER_WIDTH / img.naturalWidth
   canvas.width = PRINTER_WIDTH
-  canvas.height = Math.round(img.naturalHeight * scale)
+
+  // 元画像が正方形(1:1)の場合、3:4比率に変換（上下に余白追加）
+  const imgRatio = img.naturalHeight / img.naturalWidth
+  const isSquare = Math.abs(imgRatio - 1) < 0.05
+  const targetRatio = isSquare ? 4 / 3 : imgRatio
+  canvas.height = Math.round(PRINTER_WIDTH * targetRatio)
 
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('Failed to get canvas context')
 
-  ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+  // 白背景で塗りつぶし
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+  // 画像を中央に配置（比率維持）
+  const drawWidth = canvas.width
+  const drawHeight = Math.round(canvas.width * imgRatio)
+  const offsetY = Math.round((canvas.height - drawHeight) / 2)
+  ctx.drawImage(img, 0, offsetY, drawWidth, drawHeight)
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
 
   // サーマルプリンター用の明るさ・コントラスト補正
