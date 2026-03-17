@@ -82,3 +82,22 @@ export const AI_FILTERS: readonly FilterInfo[] = [
 ] as const
 
 export const ALL_FILTERS: readonly FilterInfo[] = [...SIMPLE_FILTERS, ...AI_FILTERS]
+
+import type { AiFilter, SimpleFilter } from './api/types'
+
+type ApiFilter = SimpleFilter | AiFilter
+
+const FILTER_ID_TO_API: Record<FilterId, ApiFilter> = {
+  'natural': 'natural',
+  'skin-smooth': 'beauty',
+  'brightness': 'bright',
+  'monochrome': 'mono',
+  'sepia': 'sepia',
+  'anime': 'anime',
+  'pop-art': 'popart',
+  'watercolor': 'watercolor',
+}
+
+export function toApiFilterName(filterId: FilterId): ApiFilter {
+  return FILTER_ID_TO_API[filterId]
+}

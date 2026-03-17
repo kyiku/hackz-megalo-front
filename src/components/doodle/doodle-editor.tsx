@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from 'react'
 
 import { DoodleCanvas } from './doodle-canvas'
+import { TextInputModal } from './text-input-modal'
 import { Toolbar } from './toolbar'
 import type { DoodleLayer, PenColor, PenSize, StampId, Tool } from './types'
 
@@ -21,8 +22,8 @@ export function DoodleEditor({ photoSrc, onSave, onCancel, initialLayers = [] }:
   const [selectedStamp, setSelectedStamp] = useState<StampId>('heart')
   const [textColor, setTextColor] = useState<PenColor>('#1a1a1a')
   const [isDrawing, setIsDrawing] = useState(false)
+  const [textInput, setTextInput] = useState<{ x: number; y: number } | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const currentPathRef = useRef<{ x: number; y: number }[]>([])
 
   const getPosition = useCallback(
     (e: React.TouchEvent | React.MouseEvent) => {
@@ -48,7 +49,6 @@ export function DoodleEditor({ photoSrc, onSave, onCancel, initialLayers = [] }:
 
       if (tool === 'pen') {
         setIsDrawing(true)
-        currentPathRef.current = [pos]
         setLayers((prev) => [
           ...prev,
           { type: 'path', points: [pos], color: penColor, size: penSize },
@@ -63,16 +63,10 @@ export function DoodleEditor({ photoSrc, onSave, onCancel, initialLayers = [] }:
       }
 
       if (tool === 'text') {
-        const content = prompt('テキストを入力')
-        if (content) {
-          setLayers((prev) => [
-            ...prev,
-            { type: 'text', content, x: pos.x, y: pos.y, color: textColor, fontSize: 24 },
-          ])
-        }
+        setTextInput(pos)
       }
     },
-    [tool, penColor, penSize, selectedStamp, textColor, getPosition],
+    [tool, penColor, penSize, selectedStamp, getPosition],
   )
 
   const handlePointerMove = useCallback(
@@ -83,27 +77,32 @@ export function DoodleEditor({ photoSrc, onSave, onCancel, initialLayers = [] }:
       const pos = getPosition(e)
       if (!pos) return
 
-      currentPathRef.current = [...currentPathRef.current, pos]
-
-      setLayers((prev) => {
-        const updated = [...prev]
-        const last = updated[updated.length - 1]
-        if (last?.type === 'path') {
-          updated[updated.length - 1] = {
-            ...last,
-            points: [...last.points, pos],
-          }
-        }
-        return updated
-      })
+      setLayers((prev) =>
+        prev.map((layer, i) =>
+          i === prev.length - 1 && layer.type === 'path'
+            ? { ...layer, points: [...layer.points, pos] }
+            : layer,
+        ),
+      )
     },
     [isDrawing, tool, getPosition],
   )
 
   const handlePointerUp = useCallback(() => {
     setIsDrawing(false)
-    currentPathRef.current = []
   }, [])
+
+  const handleTextSubmit = useCallback(
+    (content: string) => {
+      if (!textInput) return
+      setLayers((prev) => [
+        ...prev,
+        { type: 'text', content, x: textInput.x, y: textInput.y, color: textColor, fontSize: 24 },
+      ])
+      setTextInput(null)
+    },
+    [textInput, textColor],
+  )
 
   const handleUndo = useCallback(() => {
     setLayers((prev) => prev.slice(0, -1))
@@ -144,6 +143,14 @@ export function DoodleEditor({ photoSrc, onSave, onCancel, initialLayers = [] }:
       >
         <DoodleCanvas photoSrc={photoSrc} layers={layers} />
       </div>
+
+      {/* テキスト入力モーダル */}
+      {textInput && (
+        <TextInputModal
+          onSubmit={handleTextSubmit}
+          onCancel={() => setTextInput(null)}
+        />
+      )}
 
       {/* ツールバー */}
       <div className="px-4 py-3">

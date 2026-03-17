@@ -1,7 +1,7 @@
 export type Tool = 'pen' | 'stamp' | 'text'
 
-export type PenColor = string
-export type PenSize = number
+export type PenColor = '#1a1a1a' | '#e05280' | '#ffffff' | '#d4a520' | '#2aaa6a' | '#93c5fd'
+export type PenSize = 2 | 4 | 8 | 14
 
 export type StampId = 'heart' | 'star' | 'sparkle' | 'ribbon' | 'flower' | 'music'
 
@@ -16,7 +16,7 @@ export type DoodleLayer =
   | { readonly type: 'stamp'; readonly stampId: StampId; readonly x: number; readonly y: number; readonly scale: number }
   | { readonly type: 'text'; readonly content: string; readonly x: number; readonly y: number; readonly color: string; readonly fontSize: number }
 
-export const PEN_COLORS: readonly string[] = [
+export const PEN_COLORS: readonly PenColor[] = [
   '#1a1a1a',
   '#e05280',
   '#ffffff',
@@ -25,7 +25,7 @@ export const PEN_COLORS: readonly string[] = [
   '#93c5fd',
 ]
 
-export const PEN_SIZES: readonly number[] = [2, 4, 8, 14]
+export const PEN_SIZES: readonly PenSize[] = [2, 4, 8, 14]
 
 export const STAMPS: readonly Stamp[] = [
   { id: 'heart', label: 'ハート', svg: 'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z' },
