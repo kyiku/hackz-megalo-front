@@ -1,18 +1,40 @@
 'use client'
 
 import Image from 'next/image'
+import { useEffect, useState } from 'react'
 
-import { Button } from '@/components/ui/button'
-import { PageContainer } from '@/components/ui/page-container'
-import { ReceiptFrame } from '@/components/ui/receipt-frame'
+import { getSession } from '@/lib/api/sessions'
+
+import { Button } from '../ui/button'
+import { PageContainer } from '../ui/page-container'
+import { ReceiptFrame } from '../ui/receipt-frame'
 
 type DownloadViewProps = {
   readonly sessionId: string
 }
 
 export function DownloadView({ sessionId }: DownloadViewProps) {
-  // TODO: sessionId でバックエンドからカラー版高解像度URLを取得
-  const downloadUrl: string | null = null
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchSession = async () => {
+      try {
+        const session = await getSession(sessionId)
+        if (session.collageImageUrl) {
+          setDownloadUrl(session.collageImageUrl)
+        }
+      } catch (err) {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Failed to fetch session for download:', err)
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    void fetchSession()
+  }, [sessionId])
 
   return (
     <PageContainer className="flex flex-col items-center justify-center gap-6">
@@ -37,17 +59,28 @@ export function DownloadView({ sessionId }: DownloadViewProps) {
           ) : (
             <div className="flex h-full items-center justify-center">
               <div className="receipt-text text-center text-ink-light">
-                <p className="text-xs">[ カラー版コラージュ ]</p>
-                <p className="mt-1 text-[10px]">バックエンド接続後に表示</p>
+                {loading ? (
+                  <p className="animate-pulse text-xs">読み込み中...</p>
+                ) : (
+                  <p className="text-xs">画像が見つかりませんでした</p>
+                )}
               </div>
             </div>
           )}
         </div>
       </ReceiptFrame>
 
-      <Button size="lg" className="w-full" disabled={!downloadUrl}>
-        高解像度で保存
-      </Button>
+      {downloadUrl ? (
+        <a href={downloadUrl} download rel="noopener" className="w-full">
+          <Button size="lg" className="w-full">
+            高解像度で保存
+          </Button>
+        </a>
+      ) : (
+        <Button size="lg" className="w-full" disabled>
+          高解像度で保存
+        </Button>
+      )}
     </PageContainer>
   )
 }

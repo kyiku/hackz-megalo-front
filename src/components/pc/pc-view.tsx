@@ -28,48 +28,70 @@ export function PcView() {
     }
   }, [roomId, createRoom])
 
-  // WebSocket接続
+  // WebSocket接続（再接続ロジック付き）
   useEffect(() => {
     if (!roomId || !WS_URL) return
 
-    const ws = new WebSocket(WS_URL)
-    wsRef.current = ws
+    let reconnectAttempts = 0
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+    let cancelled = false
 
-    ws.addEventListener('open', () => {
-      // ルーム参加
-      ws.send(JSON.stringify({
-        action: 'join_room',
-        data: { roomId, role: 'pc' },
-      }))
-    })
+    const connect = () => {
+      if (cancelled) return
 
-    ws.addEventListener('message', (event) => {
-      try {
-        const msg = JSON.parse(event.data as string) as {
-          type: string
-          data: Record<string, unknown>
-        }
+      const ws = new WebSocket(WS_URL)
+      wsRef.current = ws
 
-        // スマホが参加したらフェーズ遷移
-        if (msg.type === 'shooting_sync') {
-          const syncEvent = msg.data.event as string
-          if (syncEvent === 'shooting_start') {
-            setPhase('shooting')
-            setPhoneConnected(true)
+      ws.addEventListener('open', () => {
+        reconnectAttempts = 0
+        ws.send(JSON.stringify({
+          action: 'join_room',
+          data: { roomId, role: 'pc' },
+        }))
+      })
+
+      ws.addEventListener('message', (event) => {
+        try {
+          const msg = JSON.parse(event.data as string) as {
+            type: string
+            data: Record<string, unknown>
           }
-          if (syncEvent === 'shooting_complete') {
-            setPhase('preview')
+
+          if (msg.type === 'shooting_sync') {
+            const syncEvent = msg.data.event as string
+            if (syncEvent === 'shooting_start') {
+              setPhase('shooting')
+              setPhoneConnected(true)
+            }
+            if (syncEvent === 'shooting_complete') {
+              setPhase('preview')
+            }
+          }
+        } catch (err) {
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Failed to parse WebSocket message:', err)
           }
         }
-      } catch (err) {
-        if (process.env.NODE_ENV === 'development') {
-          console.error('Failed to parse WebSocket message:', err)
-        }
-      }
-    })
+      })
+
+      ws.addEventListener('close', () => {
+        if (cancelled) return
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000)
+        reconnectAttempts += 1
+        reconnectTimer = setTimeout(connect, delay)
+      })
+
+      ws.addEventListener('error', () => {
+        ws.close()
+      })
+    }
+
+    connect()
 
     return () => {
-      ws.close()
+      cancelled = true
+      if (reconnectTimer) clearTimeout(reconnectTimer)
+      wsRef.current?.close()
       wsRef.current = null
     }
   }, [roomId, setPhase, setPhoneConnected])

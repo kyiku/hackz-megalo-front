@@ -33,8 +33,10 @@ export function ResultView({ sessionId }: ResultViewProps) {
         if (session.caption) {
           setCaption(session.caption)
         }
-      } catch {
-        // ignore - show placeholder
+      } catch (err) {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Failed to fetch session result:', err)
+        }
       } finally {
         setLoading(false)
       }
@@ -100,7 +102,7 @@ export function ResultView({ sessionId }: ResultViewProps) {
 
       <div className="flex w-full flex-col gap-3">
         {collageUrl && (
-          <a href={collageUrl} download className="w-full">
+          <a href={collageUrl} download rel="noopener" className="w-full">
             <Button size="lg" className="w-full">
               画像を保存
             </Button>
