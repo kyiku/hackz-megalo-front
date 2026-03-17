@@ -1,12 +1,58 @@
 'use client'
 
 import Image from 'next/image'
+import { useEffect, useState } from 'react'
 
+import { getSession } from '@/lib/api/sessions'
 import { ReceiptFrame } from '@/components/ui/receipt-frame'
-import { useSessionStore } from '@/stores/session-store'
+import { useRoomStore } from '@/stores/room-store'
 
 export function ResultScreen() {
-  const { collageUrl, caption } = useSessionStore()
+  const { sessionId } = useRoomStore()
+  const [collageUrl, setCollageUrl] = useState<string | null>(null)
+  const [caption, setCaption] = useState<string | null>(null)
+  const [loading, setLoading] = useState(!!sessionId)
+
+  useEffect(() => {
+    if (!sessionId) return
+
+    let cancelled = false
+    let retryCount = 0
+
+    const fetchResult = async () => {
+      try {
+        const session = await getSession(sessionId)
+        if (cancelled) return
+
+        if (session.status === 'completed' && session.collageImageUrl) {
+          setCollageUrl(session.collageImageUrl)
+          if (session.caption) setCaption(session.caption)
+          setLoading(false)
+          return
+        }
+
+        // まだ完了していない場合はリトライ
+        if (retryCount < 10) {
+          retryCount += 1
+          setTimeout(() => { void fetchResult() }, 2000)
+          return
+        }
+
+        setLoading(false)
+      } catch {
+        if (!cancelled && retryCount < 10) {
+          retryCount += 1
+          setTimeout(() => { void fetchResult() }, 2000)
+        } else {
+          setLoading(false)
+        }
+      }
+    }
+
+    void fetchResult()
+
+    return () => { cancelled = true }
+  }, [sessionId])
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center px-8">
@@ -19,14 +65,20 @@ export function ResultScreen() {
         </header>
 
         <ReceiptFrame className="px-5 py-5" showTornEdge={false}>
-          <div className="relative aspect-square w-full border border-dashed border-cream-dark bg-cream-dark/20">
+          <div className="relative aspect-square w-full border border-dashed border-ink-light/30 bg-cream-dark/20">
             {collageUrl ? (
               <Image src={collageUrl} alt="コラージュ" fill className="object-cover" unoptimized />
             ) : (
               <div className="flex h-full items-center justify-center">
                 <div className="receipt-text text-center text-ink-light">
-                  <p className="text-xs">[ コラージュ ]</p>
-                  <p className="mt-1 text-[10px]">バックエンド接続後に表示</p>
+                  {loading ? (
+                    <p className="animate-pulse text-xs">読み込み中...</p>
+                  ) : (
+                    <>
+                      <p className="text-xs">[ コラージュ ]</p>
+                      <p className="mt-1 text-[10px]">バックエンド接続後に表示</p>
+                    </>
+                  )}
                 </div>
               </div>
             )}
