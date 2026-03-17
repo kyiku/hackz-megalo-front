@@ -17,30 +17,31 @@ type UseWebRtcReturn = {
   readonly iceState: string | null
 }
 
-const METERED_API_KEY = process.env.NEXT_PUBLIC_METERED_API_KEY ?? ''
+const TURN_USERNAME = process.env.NEXT_PUBLIC_TURN_USERNAME ?? ''
+const TURN_CREDENTIAL = process.env.NEXT_PUBLIC_TURN_CREDENTIAL ?? ''
 
 const RTC_CONFIG: RTCConfiguration = {
   iceServers: [
     { urls: 'stun:stun.relay.metered.ca:80' },
     {
       urls: 'turn:global.relay.metered.ca:80',
-      username: METERED_API_KEY,
-      credential: METERED_API_KEY,
+      username: TURN_USERNAME,
+      credential: TURN_CREDENTIAL,
     },
     {
       urls: 'turn:global.relay.metered.ca:80?transport=tcp',
-      username: METERED_API_KEY,
-      credential: METERED_API_KEY,
+      username: TURN_USERNAME,
+      credential: TURN_CREDENTIAL,
     },
     {
       urls: 'turn:global.relay.metered.ca:443',
-      username: METERED_API_KEY,
-      credential: METERED_API_KEY,
+      username: TURN_USERNAME,
+      credential: TURN_CREDENTIAL,
     },
     {
       urls: 'turns:global.relay.metered.ca:443?transport=tcp',
-      username: METERED_API_KEY,
-      credential: METERED_API_KEY,
+      username: TURN_USERNAME,
+      credential: TURN_CREDENTIAL,
     },
   ],
 }
