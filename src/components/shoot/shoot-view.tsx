@@ -53,15 +53,14 @@ export function ShootView() {
 
   if (error) {
     return (
-      <div className="flex min-h-dvh flex-col items-center justify-center gap-4 px-6 text-center">
-        <p className="text-4xl">📷</p>
-        <p className="font-bold text-red">{error}</p>
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-cream px-6 text-center">
+        <p className="receipt-text text-sm font-bold text-red">{error}</p>
         <button
           type="button"
-          className="text-sm text-pink underline"
+          className="text-sm text-ink-light underline"
           onClick={() => router.replace('/filter')}
         >
-          フィルター選択に戻る
+          戻る
         </button>
       </div>
     )
@@ -93,14 +92,14 @@ export function ShootView() {
           <button
             type="button"
             onClick={shootSequence}
-            className="flex h-16 w-16 items-center justify-center rounded-full border-4 border-white bg-pink shadow-[0_0_20px_rgba(255,107,157,0.5)] transition-transform active:scale-90"
+            className="flex h-16 w-16 items-center justify-center rounded-full border-4 border-white/90 bg-white/20 transition-transform active:scale-90"
           >
             <div className="h-12 w-12 rounded-full bg-white" />
           </button>
         )}
 
         {isRunning && (
-          <p className="animate-pulse font-bold text-pink-light">撮影中...</p>
+          <p className="animate-pulse font-mono text-sm text-white/60">撮影中...</p>
         )}
       </div>
     </div>

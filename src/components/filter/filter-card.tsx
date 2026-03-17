@@ -14,31 +14,34 @@ export function FilterCard({ filter, isSelected, onSelect }: FilterCardProps) {
       type="button"
       onClick={onSelect}
       className={[
-        'flex w-full items-center gap-3 rounded-2xl border-2 p-3 text-left',
-        'transition-all duration-150',
+        'group flex items-center gap-3 rounded-sm border-l-4 px-3 py-2.5 text-left',
+        'transition-all duration-100',
         isSelected
-          ? 'border-pink bg-pink/5 shadow-[0_2px_8px_rgba(255,107,157,0.2)]'
-          : 'border-cream-dark bg-cream hover:border-pink-light',
+          ? 'border-l-ink bg-cream-dark/60'
+          : 'border-l-transparent hover:border-l-cream-dark hover:bg-cream-dark/30',
       ].join(' ')}
+      style={isSelected ? { borderLeftColor: filter.color } : undefined}
     >
-      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-cream-dark text-2xl">
-        {filter.emoji}
-      </span>
+      {/* カラースウォッチ */}
+      <div
+        className={[
+          'h-8 w-8 shrink-0 rounded-full border',
+          'transition-transform duration-100',
+          isSelected ? 'scale-110 border-ink' : 'border-cream-dark group-hover:scale-105',
+          filter.id === 'monochrome' ? 'border-ink-light' : '',
+        ].join(' ')}
+        style={{ backgroundColor: filter.color }}
+      />
 
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="font-bold text-ink">{filter.name}</span>
-          {filter.type === 'ai' && (
-            <span className="rounded-full bg-yellow/20 px-2 py-0.5 text-[10px] font-bold text-ink">
-              AI
-            </span>
-          )}
-        </div>
-        <p className="mt-0.5 text-xs text-ink-light">{filter.description}</p>
+        <span className={['text-sm', isSelected ? 'font-bold' : 'font-medium'].join(' ')}>
+          {filter.name}
+        </span>
+        <span className="ml-2 text-xs text-ink-light">{filter.description}</span>
       </div>
 
       {filter.type === 'ai' && (
-        <span className="shrink-0 font-mono text-[10px] text-ink-light">{filter.processingTime}</span>
+        <span className="font-mono text-[10px] text-ink-light">{filter.processingTime}</span>
       )}
     </button>
   )

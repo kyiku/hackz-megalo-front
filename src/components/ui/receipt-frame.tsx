@@ -15,7 +15,7 @@ export function ReceiptFrame({
 }: ReceiptFrameProps) {
   return (
     <div
-      className={`receipt-texture rounded-sm border border-cream-dark shadow-[2px_4px_12px_rgba(45,45,45,0.08)] ${showTornEdge ? 'receipt-torn-edge pb-6' : ''} ${className}`}
+      className={`receipt-texture border border-cream-dark shadow-sm ${showTornEdge ? 'receipt-torn-edge pb-6' : ''} ${className}`}
     >
       {children}
     </div>
