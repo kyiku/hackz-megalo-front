@@ -26,6 +26,11 @@ export function ShootingScreen({
     const video = videoRef.current
     if (!video || !remoteStream) return
     video.srcObject = remoteStream
+    video.play().catch((err) => {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to play remote video:', err)
+      }
+    })
   }, [remoteStream])
 
   return (
