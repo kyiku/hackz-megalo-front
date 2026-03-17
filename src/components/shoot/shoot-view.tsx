@@ -28,28 +28,46 @@ export function ShootView() {
 
   const photoCount = photos.length
 
-  // WebSocket接続
+  // WebSocket接続（再接続ロジック付き）
   useEffect(() => {
     if (!WS_URL || !roomId) return
 
-    const ws = new WebSocket(WS_URL)
-    wsRef.current = ws
+    let reconnectAttempts = 0
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+    let cancelled = false
 
-    ws.addEventListener('open', () => {
-      ws.send(JSON.stringify({
-        action: 'join_room',
-        data: { roomId, role: 'phone' },
-      }))
-    })
+    const connect = () => {
+      if (cancelled) return
 
-    ws.addEventListener('error', (err) => {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('WebSocket error:', err)
-      }
-    })
+      const ws = new WebSocket(WS_URL)
+      wsRef.current = ws
+
+      ws.addEventListener('open', () => {
+        reconnectAttempts = 0
+        ws.send(JSON.stringify({
+          action: 'join_room',
+          data: { roomId, role: 'phone' },
+        }))
+      })
+
+      ws.addEventListener('close', () => {
+        if (cancelled) return
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000)
+        reconnectAttempts += 1
+        reconnectTimer = setTimeout(connect, delay)
+      })
+
+      ws.addEventListener('error', () => {
+        ws.close()
+      })
+    }
+
+    connect()
 
     return () => {
-      ws.close()
+      cancelled = true
+      if (reconnectTimer) clearTimeout(reconnectTimer)
+      wsRef.current?.close()
       wsRef.current = null
     }
   }, [roomId])

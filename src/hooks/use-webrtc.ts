@@ -78,19 +78,31 @@ export function useWebRtc({
 
   const handleOffer = useCallback(
     async (sdp: string) => {
-      const pc = createPeerConnection()
-      await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp }))
-      const answer = await pc.createAnswer()
-      await pc.setLocalDescription(answer)
-      sendSignaling('webrtc_answer', { sdp: answer.sdp })
+      try {
+        const pc = createPeerConnection()
+        await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp }))
+        const answer = await pc.createAnswer()
+        await pc.setLocalDescription(answer)
+        sendSignaling('webrtc_answer', { sdp: answer.sdp })
+      } catch (err) {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Failed to handle WebRTC offer:', err)
+        }
+      }
     },
     [createPeerConnection, sendSignaling],
   )
 
   const handleAnswer = useCallback(async (sdp: string) => {
-    const pc = pcRef.current
-    if (!pc) return
-    await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp }))
+    try {
+      const pc = pcRef.current
+      if (!pc) return
+      await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp }))
+    } catch (err) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to handle WebRTC answer:', err)
+      }
+    }
   }, [])
 
   const handleIce = useCallback(async (candidateStr: string) => {
@@ -107,10 +119,16 @@ export function useWebRtc({
   }, [])
 
   const startCall = useCallback(async () => {
-    const pc = createPeerConnection()
-    const offer = await pc.createOffer()
-    await pc.setLocalDescription(offer)
-    sendSignaling('webrtc_offer', { sdp: offer.sdp })
+    try {
+      const pc = createPeerConnection()
+      const offer = await pc.createOffer()
+      await pc.setLocalDescription(offer)
+      sendSignaling('webrtc_offer', { sdp: offer.sdp })
+    } catch (err) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to start WebRTC call:', err)
+      }
+    }
   }, [createPeerConnection, sendSignaling])
 
   // WebSocketメッセージをリッスン

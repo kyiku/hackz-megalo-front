@@ -115,7 +115,7 @@ export function ProcessingView({ sessionId: routeSessionId }: ProcessingViewProp
             const photo = photos[i]
             if (!photo) return Promise.resolve()
             const blob = dataUrlToBlob(photo)
-            return uploadPhoto(upload.url, blob)
+            return uploadPhoto(upload.url, blob, abortController.signal)
           }),
         )
 
