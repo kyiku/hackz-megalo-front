@@ -6,10 +6,12 @@ import { useCallback, useEffect, useState } from 'react'
 import { getSession } from '@/lib/api/sessions'
 import { Button } from '@/components/ui/button'
 import { ReceiptFrame } from '@/components/ui/receipt-frame'
+import { usePrinterStore } from '@/stores/printer-store'
 import { useRoomStore } from '@/stores/room-store'
 
 export function ResultScreen() {
   const { sessionId, setPhase } = useRoomStore()
+  const { isConnected: printerConnected, isPrinting, printImage } = usePrinterStore()
   const [collageUrl, setCollageUrl] = useState<string | null>(null)
   const [caption, setCaption] = useState<string | null>(null)
   const [loading, setLoading] = useState(!!sessionId)
@@ -55,10 +57,27 @@ export function ResultScreen() {
     return () => { cancelled = true }
   }, [sessionId])
 
+  // プリンター接続済み＋コラージュ取得完了で自動印刷
+  useEffect(() => {
+    if (!printerConnected || !collageUrl || printed || isPrinting) return
+
+    const timer = setTimeout(() => {
+      setPrinted(true)
+      void printImage(collageUrl)
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [printerConnected, collageUrl, printed, isPrinting, printImage])
+
   const handlePrint = useCallback(() => {
-    window.print()
-    setPrinted(true)
-  }, [])
+    if (collageUrl) {
+      if (printerConnected) {
+        void printImage(collageUrl)
+      } else {
+        window.print()
+      }
+    }
+  }, [collageUrl, printerConnected, printImage])
 
   const handleComplete = useCallback(() => {
     setPhase('complete')
@@ -102,17 +121,21 @@ export function ResultScreen() {
           )}
         </ReceiptFrame>
 
-        {collageUrl && (
+        {isPrinting && (
+          <p className="mt-4 text-center animate-pulse receipt-text text-sm text-ink-light">
+            印刷中...
+          </p>
+        )}
+
+        {collageUrl && !isPrinting && (
           <div className="mt-6 flex flex-col gap-3 print:hidden">
             <Button size="lg" className="w-full" onClick={handlePrint}>
               {printed ? 'もう一度印刷' : '印刷する'}
             </Button>
 
-            {printed && (
-              <Button variant="secondary" size="md" className="w-full" onClick={handleComplete}>
-                次のお客さんへ
-              </Button>
-            )}
+            <Button variant="secondary" size="md" className="w-full" onClick={handleComplete}>
+              次のお客さんへ
+            </Button>
           </div>
         )}
       </div>
