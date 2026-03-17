@@ -2,7 +2,7 @@
 
 import { notFound } from 'next/navigation'
 import { useRouter } from 'next/navigation'
-import { use, useEffect } from 'react'
+import { use, useEffect, useRef } from 'react'
 
 import { PageContainer } from '@/components/ui/page-container'
 import { isValidRoomId } from '@/lib/validation'
@@ -19,12 +19,16 @@ export default function RoomJoinPage({ params }: Props) {
   const router = useRouter()
   const { joinRoom } = useRoomStore()
   const { connect, isConnected } = useWsStore()
+  const initializedRef = useRef(false)
 
-  // WebSocket接続開始
+  // 接続開始（1回だけ）
   useEffect(() => {
+    if (initializedRef.current) return
+    initializedRef.current = true
+
     joinRoom(roomId, 'phone')
     connect(roomId, 'phone')
-  }, [roomId, joinRoom, connect])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // 接続確立後にフィルター画面へ遷移
   useEffect(() => {
