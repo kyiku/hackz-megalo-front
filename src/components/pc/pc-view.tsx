@@ -59,6 +59,16 @@ export function PcView() {
 
           if (msg.type === 'shooting_sync') {
             const syncEvent = msg.data.event as string
+
+            // スマホからのフェーズ通知
+            if (syncEvent === 'phase_change') {
+              const newPhase = msg.data.phase as string
+              if (['filter-select', 'shooting', 'preview', 'processing', 'result'].includes(newPhase)) {
+                setPhase(newPhase as Parameters<typeof setPhase>[0])
+                setPhoneConnected(true)
+              }
+            }
+
             if (syncEvent === 'shooting_start') {
               setPhase('shooting')
               setPhoneConnected(true)
@@ -102,14 +112,6 @@ export function PcView() {
     roomId,
     role: 'pc',
   })
-
-  // WebRTC接続確立でフェーズ遷移
-  useEffect(() => {
-    if (remoteStream && phase === 'idle') {
-      setPhase('filter-select')
-      setPhoneConnected(true)
-    }
-  }, [remoteStream, phase, setPhase, setPhoneConnected])
 
   // 撮影イベント受信
   const handleShootingEvent = useCallback(
