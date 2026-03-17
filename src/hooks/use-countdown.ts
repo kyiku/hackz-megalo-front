@@ -17,17 +17,15 @@ export function useCountdown(): UseCountdownReturn {
     if (!isRunning || count === null || count <= 0) return
 
     const timer = setTimeout(() => {
-      setCount((prev) => {
-        if (prev === null) return null
-        const next = prev - 1
-        if (next <= 0) {
-          setIsRunning(false)
-          resolveRef.current?.()
-          resolveRef.current = null
-          return null
-        }
-        return next
-      })
+      const next = count - 1
+      if (next <= 0) {
+        setCount(null)
+        setIsRunning(false)
+        resolveRef.current?.()
+        resolveRef.current = null
+      } else {
+        setCount(next)
+      }
     }, 1000)
 
     return () => clearTimeout(timer)

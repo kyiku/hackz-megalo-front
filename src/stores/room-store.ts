@@ -1,5 +1,7 @@
 import { create } from 'zustand'
 
+import { isValidRoomId } from '@/lib/validation'
+
 type Role = 'pc' | 'phone'
 
 type RoomPhase =
@@ -38,9 +40,17 @@ const initialState: RoomState = {
 
 function generateRoomId(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-  const array = new Uint8Array(6)
-  crypto.getRandomValues(array)
-  return Array.from(array, (byte) => chars[byte % chars.length]).join('')
+  const limit = Math.floor(256 / chars.length) * chars.length
+  const result: string[] = []
+  while (result.length < 6) {
+    const array = new Uint8Array(1)
+    crypto.getRandomValues(array)
+    const byte = array[0]
+    if (byte !== undefined && byte < limit) {
+      result.push(chars[byte % chars.length] ?? 'A')
+    }
+  }
+  return result.join('')
 }
 
 export const useRoomStore = create<RoomState & RoomActions>()((set) => ({
@@ -52,8 +62,12 @@ export const useRoomStore = create<RoomState & RoomActions>()((set) => ({
     return roomId
   },
 
-  joinRoom: (roomId, role) =>
-    set({ roomId, role }),
+  joinRoom: (roomId, role) => {
+    if (!isValidRoomId(roomId)) {
+      throw new Error('Invalid room ID')
+    }
+    set({ roomId, role })
+  },
 
   setPhase: (phase) => set({ phase }),
 

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { StepIndicator } from '@/components/ui/step-indicator'
 import { useCamera } from '@/hooks/use-camera'
 import { useCountdown } from '@/hooks/use-countdown'
+import { useWebRtc } from '@/hooks/use-webrtc'
 import { useRoomStore } from '@/stores/room-store'
 import { useSessionStore } from '@/stores/session-store'
 
@@ -27,7 +28,7 @@ export function ShootView() {
 
   const photoCount = photos.length
 
-  // WebSocket接続 + WebRTC映像送信
+  // WebSocket接続
   useEffect(() => {
     if (!WS_URL || !roomId) return
 
@@ -41,68 +42,25 @@ export function ShootView() {
       }))
     })
 
+    ws.addEventListener('error', (err) => {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('WebSocket error:', err)
+      }
+    })
+
     return () => {
       ws.close()
       wsRef.current = null
     }
   }, [roomId])
 
-  // WebRTCでカメラ映像をPCに送信
-  useEffect(() => {
-    if (!stream || !roomId || !wsRef.current) return
-
-    const ws = wsRef.current
-    if (ws.readyState !== WebSocket.OPEN) return
-
-    const pc = new RTCPeerConnection({
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
-    })
-
-    stream.getTracks().forEach((track) => pc.addTrack(track, stream))
-
-    pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        ws.send(JSON.stringify({
-          action: 'webrtc_ice',
-          data: { roomId, candidate: JSON.stringify(event.candidate) },
-        }))
-      }
-    }
-
-    const handleMessage = (event: MessageEvent) => {
-      try {
-        const msg = JSON.parse(event.data as string) as {
-          type: string
-          data: { sdp?: string; candidate?: string }
-        }
-        if (msg.type === 'webrtc_answer' && msg.data.sdp) {
-          void pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: msg.data.sdp }))
-        }
-        if (msg.type === 'webrtc_ice' && msg.data.candidate) {
-          const candidate = JSON.parse(msg.data.candidate) as RTCIceCandidateInit
-          void pc.addIceCandidate(new RTCIceCandidate(candidate))
-        }
-      } catch { /* ignore */ }
-    }
-
-    ws.addEventListener('message', handleMessage)
-
-    const startOffer = async () => {
-      const offer = await pc.createOffer()
-      await pc.setLocalDescription(offer)
-      ws.send(JSON.stringify({
-        action: 'webrtc_offer',
-        data: { roomId, sdp: offer.sdp },
-      }))
-    }
-
-    void startOffer()
-
-    return () => {
-      ws.removeEventListener('message', handleMessage)
-      pc.close()
-    }
-  }, [stream, roomId])
+  // WebRTCでカメラ映像をPCに送信（hookを使用）
+  useWebRtc({
+    wsRef,
+    roomId,
+    role: 'phone',
+    localStream: stream,
+  })
 
   const sendSync = useCallback(
     (event: string, extra?: Record<string, unknown>) => {
@@ -123,10 +81,8 @@ export function ShootView() {
     sendSync('shooting_start', { totalPhotos: TOTAL_PHOTOS })
 
     for (let i = photoCount; i < TOTAL_PHOTOS; i++) {
-      // カウントダウン送信
-      for (let c = 3; c > 0; c--) {
-        sendSync('countdown', { photoIndex: i, count: c })
-      }
+      // カウントダウン: 1秒ずつ同期イベントを送信
+      sendSync('countdown', { photoIndex: i, count: 3 })
 
       await startCountdown(3)
 

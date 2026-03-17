@@ -1,3 +1,5 @@
+import type { AiFilter, SimpleFilter } from './api/types'
+
 export type SimpleFilterId = 'natural' | 'skin-smooth' | 'brightness' | 'monochrome' | 'sepia'
 export type AiFilterId = 'anime' | 'pop-art' | 'watercolor'
 export type FilterId = SimpleFilterId | AiFilterId
@@ -82,8 +84,6 @@ export const AI_FILTERS: readonly FilterInfo[] = [
 ] as const
 
 export const ALL_FILTERS: readonly FilterInfo[] = [...SIMPLE_FILTERS, ...AI_FILTERS]
-
-import type { AiFilter, SimpleFilter } from './api/types'
 
 type ApiFilter = SimpleFilter | AiFilter
 

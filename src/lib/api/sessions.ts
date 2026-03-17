@@ -1,3 +1,5 @@
+import { isValidSessionId } from '@/lib/validation'
+
 import { apiRequest } from './client'
 import type {
   CreateSessionRequest,
@@ -22,6 +24,10 @@ export async function createSession(
 }
 
 export async function getSession(sessionId: string): Promise<SessionResponse> {
+  if (!isValidSessionId(sessionId)) {
+    throw new Error('Invalid session ID')
+  }
+
   const result = await apiRequest<SessionResponse>(`/api/session/${sessionId}`)
 
   if (!result.success || !result.data) {
@@ -32,6 +38,10 @@ export async function getSession(sessionId: string): Promise<SessionResponse> {
 }
 
 export async function startProcessing(sessionId: string): Promise<ProcessStartResponse> {
+  if (!isValidSessionId(sessionId)) {
+    throw new Error('Invalid session ID')
+  }
+
   const result = await apiRequest<ProcessStartResponse>(
     `/api/session/${sessionId}/process`,
     { method: 'POST' },

@@ -60,8 +60,10 @@ export function useShootingSync({
         if (msg.type === 'shooting_sync') {
           onEventRef.current?.(msg.data)
         }
-      } catch {
-        // ignore
+      } catch (err) {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Failed to parse shooting sync:', err)
+        }
       }
     }
 
