@@ -10,6 +10,7 @@ type ArFilterOverlayProps = {
   readonly videoRef: React.RefObject<HTMLVideoElement | null>
   readonly isActive: boolean
   readonly onEffectChange?: (effect: ArEffect | null) => void
+  readonly externalEffect?: ArEffect | null
 }
 
 type FaceLandmark = {
@@ -159,7 +160,7 @@ const EFFECT_RENDERERS: Record<
   heart: drawHearts,
 }
 
-export function ArFilterOverlay({ videoRef, isActive, onEffectChange }: ArFilterOverlayProps) {
+export function ArFilterOverlay({ videoRef, isActive, onEffectChange, externalEffect }: ArFilterOverlayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [selectedEffect, setSelectedEffect] = useState<ArEffect | null>(null)
   const selectedEffectRef = useRef<ArEffect | null>(selectedEffect)
@@ -174,6 +175,13 @@ export function ArFilterOverlay({ videoRef, isActive, onEffectChange }: ArFilter
     selectedEffectRef.current = selectedEffect
     onEffectChange?.(selectedEffect)
   }, [selectedEffect, onEffectChange])
+
+  // Phone側から同期されたエフェクトでローカルを上書き
+  useEffect(() => {
+    if (externalEffect !== undefined) {
+      setSelectedEffect(externalEffect)
+    }
+  }, [externalEffect])
 
   // MediaPipe FaceLandmarker の初期化
   useEffect(() => {

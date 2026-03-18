@@ -86,6 +86,14 @@ export function ShootView() {
     [roomId, send],
   )
 
+  // Phone側のARエフェクト変更をPC側に送信
+  const onPhoneEffectChange = useCallback(
+    (effect: ArEffect | null) => {
+      sendSync('ar_sync', { effect })
+    },
+    [sendSync],
+  )
+
   const onCountdownTick = useCallback(
     (value: number) => sendSync('countdown', { count: value }),
     [sendSync],
@@ -179,7 +187,7 @@ export function ShootView() {
           muted
           style={{ transform: 'scaleX(-1)' }}
         />
-        <PhoneArOverlay ref={arOverlayRef} videoRef={videoRef} isActive={isReady} externalEffect={externalEffect} />
+        <PhoneArOverlay ref={arOverlayRef} videoRef={videoRef} isActive={isReady} externalEffect={externalEffect} onEffectChange={onPhoneEffectChange} />
         <CountdownOverlay count={count} />
         <FlashOverlay trigger={flashTrigger} />
       </div>
