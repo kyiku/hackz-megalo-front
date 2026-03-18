@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { DoodleCanvas } from './doodle-canvas'
 import { TextInputModal } from './text-input-modal'
@@ -9,14 +9,13 @@ import type { DoodleLayer, PenColor, PenSize, StampId, Tool } from './types'
 
 type DoodleEditorProps = {
   readonly photoSrc: string
+  readonly layers: readonly DoodleLayer[]
+  readonly onLayersChange: (layers: readonly DoodleLayer[]) => void
   readonly onSave: (layers: readonly DoodleLayer[]) => void
   readonly onCancel: () => void
-  readonly onLayerChange?: (layers: readonly DoodleLayer[]) => void
-  readonly initialLayers?: readonly DoodleLayer[]
 }
 
-export function DoodleEditor({ photoSrc, onSave, onCancel, onLayerChange, initialLayers = [] }: DoodleEditorProps) {
-  const [layers, setLayers] = useState<readonly DoodleLayer[]>(initialLayers)
+export function DoodleEditor({ photoSrc, layers, onLayersChange, onSave, onCancel }: DoodleEditorProps) {
   const [tool, setTool] = useState<Tool>('pen')
   const [penColor, setPenColor] = useState<PenColor>('#e05280')
   const [penSize, setPenSize] = useState<PenSize>(4)
@@ -28,6 +27,11 @@ export function DoodleEditor({ photoSrc, onSave, onCancel, onLayerChange, initia
   const [movingIndex, setMovingIndex] = useState<number | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const touchCountRef = useRef(0)
+  const layersRef = useRef(layers)
+
+  useEffect(() => {
+    layersRef.current = layers
+  }, [layers])
 
   const getPosition = useCallback(
     (e: React.TouchEvent | React.MouseEvent) => {
@@ -48,19 +52,17 @@ export function DoodleEditor({ photoSrc, onSave, onCancel, onLayerChange, initia
 
   const updateLayers = useCallback(
     (updater: (prev: readonly DoodleLayer[]) => readonly DoodleLayer[]) => {
-      setLayers((prev) => {
-        const next = updater(prev)
-        onLayerChange?.(next)
-        return next
-      })
+      const next = updater(layersRef.current)
+      onLayersChange(next)
     },
-    [onLayerChange],
+    [onLayersChange],
   )
 
   const findLayerAt = useCallback(
     (x: number, y: number): number | null => {
-      for (let i = layers.length - 1; i >= 0; i--) {
-        const layer = layers[i]
+      const currentLayers = layersRef.current
+      for (let i = currentLayers.length - 1; i >= 0; i--) {
+        const layer = currentLayers[i]
         if (!layer) continue
 
         if (layer.type === 'stamp') {
@@ -74,12 +76,11 @@ export function DoodleEditor({ photoSrc, onSave, onCancel, onLayerChange, initia
       }
       return null
     },
-    [layers],
+    [],
   )
 
   const handlePointerDown = useCallback(
     (e: React.TouchEvent | React.MouseEvent) => {
-      // 2本指はスクロール用（ペンモード時）
       if ('touches' in e) {
         touchCountRef.current = e.touches.length
         if (e.touches.length >= 2) return
@@ -120,13 +121,11 @@ export function DoodleEditor({ photoSrc, onSave, onCancel, onLayerChange, initia
 
   const handlePointerMove = useCallback(
     (e: React.TouchEvent | React.MouseEvent) => {
-      // 2本指はスクロール
       if ('touches' in e && (e.touches.length >= 2 || touchCountRef.current >= 2)) return
 
       const pos = getPosition(e)
       if (!pos) return
 
-      // 移動モード
       if (tool === 'move' && movingIndex !== null) {
         e.preventDefault()
         updateLayers((prev) =>
@@ -140,7 +139,6 @@ export function DoodleEditor({ photoSrc, onSave, onCancel, onLayerChange, initia
         return
       }
 
-      // ペン描画
       if (!isDrawing || tool !== 'pen') return
       e.preventDefault()
 
@@ -179,7 +177,6 @@ export function DoodleEditor({ photoSrc, onSave, onCancel, onLayerChange, initia
 
   return (
     <div className="flex min-h-dvh flex-col bg-cream">
-      {/* ヘッダー */}
       <div className="flex items-center justify-between px-4 py-3">
         <button type="button" onClick={onCancel} className="text-sm text-ink-light">
           キャンセル
@@ -190,7 +187,6 @@ export function DoodleEditor({ photoSrc, onSave, onCancel, onLayerChange, initia
         </button>
       </div>
 
-      {/* キャンバス */}
       <div
         ref={containerRef}
         className="relative mx-4 flex-1 border border-cream-dark"
@@ -206,7 +202,6 @@ export function DoodleEditor({ photoSrc, onSave, onCancel, onLayerChange, initia
         <DoodleCanvas photoSrc={photoSrc} layers={layers} />
       </div>
 
-      {/* テキスト入力モーダル */}
       {textInput && (
         <TextInputModal
           onSubmit={handleTextSubmit}
@@ -214,7 +209,6 @@ export function DoodleEditor({ photoSrc, onSave, onCancel, onLayerChange, initia
         />
       )}
 
-      {/* ツールバー */}
       <div className="px-4 py-3">
         <Toolbar
           tool={tool}
