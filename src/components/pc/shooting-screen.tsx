@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 
+import { ArFilterOverlay } from './ar-filter-overlay'
 import { YajiComment } from './yaji-comment'
 
 type ShootingScreenProps = {
@@ -81,6 +82,9 @@ export function ShootingScreen({
         {lastShutterIndex !== null && (
           <div key={lastShutterIndex} className="absolute inset-0 animate-[flash_200ms_ease-out_forwards] bg-white" />
         )}
+
+        {/* ARフィルターオーバーレイ */}
+        <ArFilterOverlay videoRef={videoRef} isActive={remoteStream !== null} />
 
         {/* やじコメント */}
         <YajiComment wsRef={wsRef} />

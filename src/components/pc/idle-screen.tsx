@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { usePrinterStore } from '@/stores/printer-store'
 
 import { QrDisplay } from './qr-display'
+import { StatsDashboard } from './stats-dashboard'
 
 type IdleScreenProps = {
   readonly roomId: string
@@ -41,6 +42,11 @@ export function IdleScreen({ roomId }: IdleScreenProps) {
         </div>
 
         <p className="receipt-text text-xs text-ink-light">スマホが接続されると撮影が始まります</p>
+
+        {/* リアルタイム統計ダッシュボード */}
+        <div className="receipt-texture w-full max-w-xs border border-cream-dark p-5 shadow-sm">
+          <StatsDashboard />
+        </div>
       </div>
     </div>
   )
