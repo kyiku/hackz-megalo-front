@@ -31,6 +31,7 @@ type SessionState = {
   readonly processingStep: ProcessingStep | null
   readonly collageUrl: string | null
   readonly caption: string | null
+  readonly downloadCode: string | null
 }
 
 type SessionActions = {
@@ -41,6 +42,7 @@ type SessionActions = {
   readonly startSession: (sessionId: string, uploadUrls?: readonly UploadUrl[]) => void
   readonly setProcessingStep: (step: ProcessingStep) => void
   readonly setResult: (collageUrl: string, caption: string | null) => void
+  readonly setDownloadCode: (code: string) => void
   readonly reset: () => void
 }
 
@@ -52,6 +54,7 @@ const initialState: SessionState = {
   processingStep: null,
   collageUrl: null,
   caption: null,
+  downloadCode: null,
 }
 
 export const useSessionStore = create<SessionState & SessionActions>()((set) => ({
@@ -77,6 +80,8 @@ export const useSessionStore = create<SessionState & SessionActions>()((set) => 
 
   setResult: (collageUrl, caption) =>
     set({ collageUrl, caption, processingStep: 'complete' }),
+
+  setDownloadCode: (code) => set({ downloadCode: code }),
 
   reset: () => set(initialState),
 }))

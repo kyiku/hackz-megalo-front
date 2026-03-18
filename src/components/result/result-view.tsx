@@ -16,7 +16,11 @@ type ResultViewProps = {
 }
 
 export function ResultView({ sessionId }: ResultViewProps) {
-  const { collageUrl: storeCollageUrl, caption: storeCaption } = useSessionStore()
+  const {
+    collageUrl: storeCollageUrl,
+    caption: storeCaption,
+    downloadCode,
+  } = useSessionStore()
   const [collageUrl, setCollageUrl] = useState<string | null>(storeCollageUrl)
   const [caption, setCaption] = useState<string | null>(storeCaption)
   const [loading, setLoading] = useState(!storeCollageUrl)
@@ -102,9 +106,23 @@ export function ResultView({ sessionId }: ResultViewProps) {
           </div>
         )}
 
+        {downloadCode && (
+          <div className="mt-3 border-t border-dashed border-ink-light/30 pt-3">
+            <p className="receipt-text text-xs text-ink-light">DOWNLOAD CODE:</p>
+            <p className="mt-1 text-center font-mono text-2xl font-bold tracking-[0.2em]">
+              {downloadCode}
+            </p>
+            <p className="mt-1 text-center font-mono text-[10px] text-ink-light">
+              ClayCodeをスキャンしてDL
+            </p>
+          </div>
+        )}
+
         <div className="mt-3 border-t border-dashed border-ink-light/30 pt-2 text-center">
           <p className="font-mono text-[10px] text-ink-light">
-            レシートのQRからカラー版DL可
+            {downloadCode
+              ? 'ClayCodeまたはQRからカラー版DL可'
+              : 'レシートのQRからカラー版DL可'}
           </p>
         </div>
       </ReceiptFrame>
