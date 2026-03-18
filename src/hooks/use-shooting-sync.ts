@@ -14,7 +14,7 @@ type ShootingSyncData = {
 }
 
 type UseShootingSyncOptions = {
-  readonly wsRef: React.RefObject<WebSocket | null>
+  readonly ws: WebSocket | null
   readonly roomId: string | null
   readonly onEvent?: (data: ShootingSyncData) => void
 }
@@ -24,7 +24,7 @@ type UseShootingSyncReturn = {
 }
 
 export function useShootingSync({
-  wsRef,
+  ws,
   roomId,
   onEvent,
 }: UseShootingSyncOptions): UseShootingSyncReturn {
@@ -36,7 +36,6 @@ export function useShootingSync({
 
   const sendEvent = useCallback(
     (data: ShootingSyncData) => {
-      const ws = wsRef.current
       if (!ws || ws.readyState !== WebSocket.OPEN || !roomId) return
 
       ws.send(JSON.stringify({
@@ -44,11 +43,10 @@ export function useShootingSync({
         data: { ...data, roomId },
       }))
     },
-    [wsRef, roomId],
+    [ws, roomId],
   )
 
   useEffect(() => {
-    const ws = wsRef.current
     if (!ws || !roomId) return
 
     const handler = (event: MessageEvent) => {
@@ -70,7 +68,7 @@ export function useShootingSync({
 
     ws.addEventListener('message', handler)
     return () => ws.removeEventListener('message', handler)
-  }, [wsRef, roomId])
+  }, [ws, roomId])
 
   return { sendEvent }
 }

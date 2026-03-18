@@ -136,7 +136,7 @@ export function PcView() {
   )
 
   useShootingSync({
-    wsRef,
+    ws,
     roomId,
     onEvent: handleShootingEvent,
   })
