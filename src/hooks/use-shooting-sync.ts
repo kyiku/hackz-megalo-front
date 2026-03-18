@@ -9,6 +9,7 @@ type ShootingSyncData = {
   readonly sessionId?: string
   readonly totalPhotos?: number
   readonly photoIndex?: number
+  readonly photoCount?: number
   readonly count?: number
 }
 

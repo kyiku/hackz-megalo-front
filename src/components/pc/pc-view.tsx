@@ -78,13 +78,8 @@ export function PcView() {
             }
           }
 
-          if (syncEvent === 'shooting_start') {
-            setPhase('shooting')
-            setPhoneConnected(true)
-          }
-          if (syncEvent === 'shooting_complete') {
-            setPhase('preview')
-          }
+          // shooting_start/shooting_complete は useShootingSync 経由の
+          // handleShootingEvent で処理（重複防止）
         }
       } catch (err) {
         if (process.env.NODE_ENV === 'development') {
