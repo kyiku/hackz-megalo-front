@@ -2,8 +2,6 @@
 
 import { useEffect, useRef } from 'react'
 
-import { useSessionStore } from '@/stores/session-store'
-
 import { YajiComment } from './yaji-comment'
 
 type ShootingScreenProps = {
@@ -12,6 +10,7 @@ type ShootingScreenProps = {
   readonly countdownValue: number | null
   readonly lastShutterIndex: number | null
   readonly iceState: string | null
+  readonly photoCount: number
 }
 
 export function ShootingScreen({
@@ -20,8 +19,8 @@ export function ShootingScreen({
   countdownValue,
   lastShutterIndex,
   iceState,
+  photoCount,
 }: ShootingScreenProps) {
-  const { photos } = useSessionStore()
   const videoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
@@ -93,12 +92,12 @@ export function ShootingScreen({
             key={i}
             className={[
               'h-3 w-3 rounded-full transition-all',
-              i < photos.length ? 'bg-ink' : 'bg-cream-dark',
+              i < photoCount ? 'bg-ink' : 'bg-cream-dark',
             ].join(' ')}
           />
         ))}
         <p className="receipt-text ml-2 text-sm text-ink-light">
-          {photos.length}/4 枚撮影済み
+          {photoCount}/4 枚撮影済み
         </p>
       </div>
     </div>

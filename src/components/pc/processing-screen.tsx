@@ -1,11 +1,54 @@
 'use client'
 
+import { useEffect, useState } from 'react'
+
 import { ProcessingSteps } from '@/components/processing/processing-steps'
 import { ReceiptFrame } from '@/components/ui/receipt-frame'
-import { useSessionStore } from '@/stores/session-store'
+import { useRoomStore } from '@/stores/room-store'
+import { useWsStore } from '@/stores/ws-store'
+
+const STEP_MAP: Record<string, string> = {
+  'face-detection': 'face-detection',
+  'filter': 'filter-apply',
+  'collage': 'collage-generate',
+  'caption': 'collage-generate',
+  'dither': 'print-prepare',
+}
 
 export function ProcessingScreen() {
-  const { processingStep } = useSessionStore()
+  const { sessionId } = useRoomStore()
+  const { ws } = useWsStore()
+  const [currentStep, setCurrentStep] = useState('uploading')
+
+  // WebSocketでstatusUpdateを受信
+  useEffect(() => {
+    if (!ws || !sessionId) return
+
+    // セッションをsubscribe
+    ws.send(JSON.stringify({
+      action: 'subscribe',
+      data: { sessionId },
+    }))
+
+    const handler = (event: MessageEvent) => {
+      try {
+        const msg = JSON.parse(event.data as string) as {
+          type: string
+          data: { step?: string }
+        }
+
+        if (msg.type === 'statusUpdate' && msg.data.step) {
+          const mapped = STEP_MAP[msg.data.step] ?? msg.data.step
+          setCurrentStep(mapped)
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    ws.addEventListener('message', handler)
+    return () => ws.removeEventListener('message', handler)
+  }, [ws, sessionId])
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center px-8">
@@ -18,7 +61,7 @@ export function ProcessingScreen() {
         </header>
 
         <ReceiptFrame className="px-6 py-5" showTornEdge={false}>
-          <ProcessingSteps currentStep={processingStep ?? 'uploading'} />
+          <ProcessingSteps currentStep={currentStep} />
         </ReceiptFrame>
       </div>
     </div>
