@@ -30,12 +30,16 @@ function getSpeechRecognition(): SpeechRecognitionConstructor | null {
   return (w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null) as SpeechRecognitionConstructor | null
 }
 
+// ブラウザAPI対応は実行中に変化しないため1回だけ評価
+const IS_SUPPORTED = typeof globalThis !== 'undefined' && getSpeechRecognition() !== null
+
 export function useVoiceCommand({ isActive, onTrigger }: UseVoiceCommandOptions): {
   readonly isSupported: boolean
 } {
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null)
   const onTriggerRef = useRef(onTrigger)
   const cooldownRef = useRef(false)
+  const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     onTriggerRef.current = onTrigger
@@ -55,8 +59,7 @@ export function useVoiceCommand({ isActive, onTrigger }: UseVoiceCommandOptions)
         if (matched) {
           cooldownRef.current = true
           onTriggerRef.current()
-          // 3秒クールダウン（連続発火防止）
-          setTimeout(() => { cooldownRef.current = false }, 3000)
+          cooldownTimerRef.current = setTimeout(() => { cooldownRef.current = false }, 3000)
           return
         }
       }
@@ -81,9 +84,18 @@ export function useVoiceCommand({ isActive, onTrigger }: UseVoiceCommandOptions)
     recognition.addEventListener('result', handleResult)
 
     // 認識が途切れたら自動再開
+    // isActive はクロージャでキャプチャされるが、effect が isActive で
+    // 再実行されるためクリーンアップで古いインスタンスは abort される
     recognition.addEventListener('end', () => {
-      if (isActive && recognitionRef.current === recognition) {
+      if (recognitionRef.current === recognition) {
         try { recognition.start() } catch { /* already started */ }
+      }
+    })
+
+    recognition.addEventListener('error', (e) => {
+      if (process.env.NODE_ENV === 'development') {
+        const errorEvent = e as Event & { error?: string }
+        console.warn('SpeechRecognition error:', errorEvent.error)
       }
     })
 
@@ -98,8 +110,13 @@ export function useVoiceCommand({ isActive, onTrigger }: UseVoiceCommandOptions)
     return () => {
       recognitionRef.current = null
       recognition.abort()
+      if (cooldownTimerRef.current) {
+        clearTimeout(cooldownTimerRef.current)
+        cooldownTimerRef.current = null
+      }
+      cooldownRef.current = false
     }
   }, [isActive, handleResult])
 
-  return { isSupported: getSpeechRecognition() !== null }
+  return { isSupported: IS_SUPPORTED }
 }
