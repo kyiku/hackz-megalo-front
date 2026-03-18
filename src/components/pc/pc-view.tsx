@@ -75,9 +75,15 @@ export function PcView() {
           }
 
           if (syncEvent === 'photo_sync') {
-            const photos = msg.data.photos as string[] | undefined
-            if (photos && Array.isArray(photos)) {
-              setPreviewPhotos(photos)
+            // 1枚ずつ受信 (WebSocket 32KB制限対応)
+            const photoData = msg.data.photoData as string | undefined
+            const photoIndex = msg.data.photoIndex as number | undefined
+            const photoCount = msg.data.photoCount as number | undefined
+            if (photoData && photoIndex !== undefined && photoCount !== undefined) {
+              setPreviewPhotos((prev) => {
+                const updated = prev.length >= photoCount ? [...prev] : Array.from({ length: photoCount }, (_, i) => prev[i] ?? '')
+                return updated.map((p, i) => i === photoIndex ? photoData : p)
+              })
             }
           }
 
