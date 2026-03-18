@@ -8,6 +8,9 @@ import { useCamera } from '@/hooks/use-camera'
 import { useCountdown } from '@/hooks/use-countdown'
 import { useVoiceCommand } from '@/hooks/use-voice-command'
 import { useWebRtc } from '@/hooks/use-webrtc'
+import { useYajiFrameUpload } from '@/hooks/use-yaji-frame-upload'
+import { createSession } from '@/lib/api/sessions'
+import { toApiFilterName } from '@/lib/filters'
 import { useRoomStore } from '@/stores/room-store'
 import { useSessionStore } from '@/stores/session-store'
 import { useWsStore } from '@/stores/ws-store'
@@ -20,10 +23,12 @@ const TOTAL_PHOTOS = 4
 export function ShootView() {
   const router = useRouter()
   const { videoRef, isReady, error, capture, stream } = useCamera()
-  const { filter, addPhoto, photos } = useSessionStore()
-  const { roomId } = useRoomStore()
+  const { filter, addPhoto, photos, startSession } = useSessionStore()
+  const { roomId, setSessionId } = useRoomStore()
   const { ws, send } = useWsStore()
   const [flashTrigger, setFlashTrigger] = useState(0)
+  const [isShooting, setIsShooting] = useState(false)
+  const [yajiSessionId, setYajiSessionId] = useState<string | null>(null)
   const isShootingRef = useRef(false)
 
   const photoCount = photos.length
@@ -34,6 +39,13 @@ export function ShootView() {
     roomId,
     role: 'phone',
     localStream: stream,
+  })
+
+  // やじフレーム自動アップロード（撮影中のみ）
+  useYajiFrameUpload({
+    sessionId: yajiSessionId,
+    videoRef,
+    isActive: isShooting,
   })
 
   const sendSync = useCallback(
@@ -52,12 +64,31 @@ export function ShootView() {
   const { count, isRunning, start: startCountdown } = useCountdown({ onTick: onCountdownTick })
 
   const shootSequence = useCallback(async () => {
-    if (isShootingRef.current) return
+    if (isShootingRef.current || !filter) return
     isShootingRef.current = true
+    setIsShooting(true)
 
-    sendSync('shooting_start', { totalPhotos: TOTAL_PHOTOS })
+    // セッションを先行作成（やじコメント用 + 後で処理に再利用）
+    try {
+      const session = await createSession({
+        filterType: filter.type,
+        filter: toApiFilterName(filter.value),
+        photoCount: TOTAL_PHOTOS,
+      })
+      setYajiSessionId(session.sessionId)
+      setSessionId(session.sessionId)
+      startSession(session.sessionId, session.uploadUrls)
+      sendSync('shooting_start', {
+        totalPhotos: TOTAL_PHOTOS,
+        sessionId: session.sessionId,
+      })
+    } catch {
+      // セッション作成失敗時もやじなしで撮影は継続
+      sendSync('shooting_start', { totalPhotos: TOTAL_PHOTOS })
+    }
 
     for (let i = photoCount; i < TOTAL_PHOTOS; i++) {
+      // カウントダウン開始をPC側に同期
       sendSync('countdown', { photoIndex: i, count: 3 })
 
       await startCountdown(3)
@@ -74,10 +105,11 @@ export function ShootView() {
       }
     }
 
+    setIsShooting(false)
     sendSync('shooting_complete')
     isShootingRef.current = false
     router.push('/preview')
-  }, [photoCount, startCountdown, capture, addPhoto, router, sendSync])
+  }, [photoCount, startCountdown, capture, addPhoto, router, sendSync, filter, setSessionId, startSession])
 
   // 音声コマンドで撮影開始（「撮って」「チーズ」等）
   const { isSupported: voiceSupported } = useVoiceCommand({

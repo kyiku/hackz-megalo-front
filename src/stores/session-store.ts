@@ -18,8 +18,14 @@ type ProcessingStep =
   | 'print-prepare'
   | 'complete'
 
+type UploadUrl = {
+  readonly index: number
+  readonly url: string
+}
+
 type SessionState = {
   readonly sessionId: string | null
+  readonly uploadUrls: readonly UploadUrl[]
   readonly filter: Filter | null
   readonly photos: readonly string[]
   readonly processingStep: ProcessingStep | null
@@ -32,7 +38,7 @@ type SessionActions = {
   readonly addPhoto: (photoDataUrl: string) => void
   readonly replacePhoto: (index: number, photoDataUrl: string) => void
   readonly clearPhotos: () => void
-  readonly startSession: (sessionId: string) => void
+  readonly startSession: (sessionId: string, uploadUrls?: readonly UploadUrl[]) => void
   readonly setProcessingStep: (step: ProcessingStep) => void
   readonly setResult: (collageUrl: string, caption: string | null) => void
   readonly reset: () => void
@@ -40,6 +46,7 @@ type SessionActions = {
 
 const initialState: SessionState = {
   sessionId: null,
+  uploadUrls: [],
   filter: null,
   photos: [],
   processingStep: null,
@@ -64,7 +71,7 @@ export const useSessionStore = create<SessionState & SessionActions>()((set) => 
 
   clearPhotos: () => set({ photos: [] }),
 
-  startSession: (sessionId) => set({ sessionId }),
+  startSession: (sessionId, uploadUrls) => set({ sessionId, uploadUrls: uploadUrls ?? [] }),
 
   setProcessingStep: (step) => set({ processingStep: step }),
 

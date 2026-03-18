@@ -97,7 +97,7 @@ export function PcView() {
 
   // 撮影イベント受信 + 音声演出
   const handleShootingEvent = useCallback(
-    (data: { event: string; count?: number; photoIndex?: number; photoCount?: number }) => {
+    (data: { event: string; count?: number; photoIndex?: number; photoCount?: number; sessionId?: string }) => {
       if (data.event === 'countdown' && data.count !== undefined) {
         setCountdownValue(data.count)
         audio.playCountdown(data.count)
@@ -114,6 +114,16 @@ export function PcView() {
         setPhase('shooting')
         setPcPhotoCount(0)
         audio.startBgm()
+
+        // セッションIDが含まれていればsubscribeしてやじコメントを受信
+        const sid = data.sessionId
+        if (sid && ws) {
+          setSessionId(sid)
+          ws.send(JSON.stringify({
+            action: 'subscribe',
+            data: { sessionId: sid },
+          }))
+        }
       }
       if (data.event === 'shooting_complete') {
         setCountdownValue(null)
@@ -122,7 +132,7 @@ export function PcView() {
         audio.playFanfare()
       }
     },
-    [setPhase, audio],
+    [setPhase, setSessionId, ws, audio],
   )
 
   useShootingSync({
