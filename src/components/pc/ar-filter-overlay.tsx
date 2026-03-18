@@ -4,12 +4,13 @@ import { useEffect, useRef, useState } from 'react'
 
 import type { FaceLandmarker as FaceLandmarkerType } from '@mediapipe/tasks-vision'
 
+type ArEffect = 'dog' | 'cat' | 'sparkle' | 'crown' | 'heart'
+
 type ArFilterOverlayProps = {
   readonly videoRef: React.RefObject<HTMLVideoElement | null>
   readonly isActive: boolean
+  readonly onEffectChange?: (effect: ArEffect | null) => void
 }
-
-type ArEffect = 'dog' | 'cat' | 'sparkle' | 'crown' | 'heart'
 
 type FaceLandmark = {
   readonly x: number
@@ -158,20 +159,21 @@ const EFFECT_RENDERERS: Record<
   heart: drawHearts,
 }
 
-export function ArFilterOverlay({ videoRef, isActive }: ArFilterOverlayProps) {
+export function ArFilterOverlay({ videoRef, isActive, onEffectChange }: ArFilterOverlayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [selectedEffect, setSelectedEffect] = useState<ArEffect>('sparkle')
-  const selectedEffectRef = useRef<ArEffect>(selectedEffect)
+  const [selectedEffect, setSelectedEffect] = useState<ArEffect | null>(null)
+  const selectedEffectRef = useRef<ArEffect | null>(selectedEffect)
   const faceLandmarkerRef = useRef<FaceLandmarkerType | null>(null)
   const animFrameRef = useRef<number>(0)
   const readyRef = useRef(false)
   const lastTimestampRef = useRef(0)
   const canvasSizeRef = useRef({ w: 0, h: 0 })
 
-  // selectedEffect を ref に同期（描画ループの依存を排除）
+  // selectedEffect を ref に同期（描画ループの依存を排除）+ 親に通知
   useEffect(() => {
     selectedEffectRef.current = selectedEffect
-  }, [selectedEffect])
+    onEffectChange?.(selectedEffect)
+  }, [selectedEffect, onEffectChange])
 
   // MediaPipe FaceLandmarker の初期化
   useEffect(() => {
@@ -249,20 +251,23 @@ export function ArFilterOverlay({ videoRef, isActive }: ArFilterOverlayProps) {
         if (ctx) {
           ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-          try {
-            // タイムスタンプが単調増加であることを保証
-            const now = performance.now()
-            const timestamp = now > lastTimestampRef.current ? now : lastTimestampRef.current + 1
-            lastTimestampRef.current = timestamp
+          const currentEffect = selectedEffectRef.current
+          if (currentEffect) {
+            try {
+              // タイムスタンプが単調増加であることを保証
+              const now = performance.now()
+              const timestamp = now > lastTimestampRef.current ? now : lastTimestampRef.current + 1
+              lastTimestampRef.current = timestamp
 
-            const result = faceLandmarker.detectForVideo(video, timestamp)
+              const result = faceLandmarker.detectForVideo(video, timestamp)
 
-            for (const landmarks of result.faceLandmarks) {
-              const renderer = EFFECT_RENDERERS[selectedEffectRef.current]
-              renderer(ctx, landmarks, canvas.width, canvas.height)
+              for (const landmarks of result.faceLandmarks) {
+                const renderer = EFFECT_RENDERERS[currentEffect]
+                renderer(ctx, landmarks, canvas.width, canvas.height)
+              }
+            } catch {
+              // 検出エラーは無視
             }
-          } catch {
-            // 検出エラーは無視
           }
         }
       }
@@ -287,6 +292,18 @@ export function ArFilterOverlay({ videoRef, isActive }: ArFilterOverlayProps) {
       />
 
       <div className="absolute bottom-2 left-1/2 z-10 flex -translate-x-1/2 gap-1">
+        <button
+          type="button"
+          onClick={() => setSelectedEffect(null)}
+          className={[
+            'rounded-full px-2 py-0.5 text-[10px] font-bold transition-colors',
+            selectedEffect === null
+              ? 'bg-white text-ink'
+              : 'bg-ink/40 text-white/70 hover:bg-ink/60',
+          ].join(' ')}
+        >
+          なし
+        </button>
         {AR_EFFECTS.map((effect) => (
           <button
             key={effect.id}

@@ -14,10 +14,14 @@ import { useRoomStore } from '@/stores/room-store'
 import { useSessionStore } from '@/stores/session-store'
 import { useWsStore } from '@/stores/ws-store'
 
+function getProcessingPath(sessionId: string | null): string {
+  return `/processing/${sessionId ?? 'demo'}`
+}
+
 export default function DoodlePage() {
   const router = useRouter()
-  const { photos, replacePhoto } = useSessionStore()
-  const { roomId } = useRoomStore()
+  const { photos, replacePhoto, sessionId } = useSessionStore()
+  const { roomId, sessionId: roomSessionId } = useRoomStore()
   const { send } = useWsStore()
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [photoLayers, setPhotoLayers] = useState<Record<number, readonly DoodleLayer[]>>({})
@@ -69,8 +73,9 @@ export default function DoodlePage() {
     } catch {
       // If compositing fails, proceed without compositing
     }
-    router.push('/processing/demo')
-  }, [photoLayers, photos, replacePhoto, router])
+    const resolvedSessionId = sessionId ?? roomSessionId
+    router.push(getProcessingPath(resolvedSessionId))
+  }, [photoLayers, photos, replacePhoto, router, sessionId, roomSessionId])
 
   if (photos.length === 0) {
     router.replace('/filter')
