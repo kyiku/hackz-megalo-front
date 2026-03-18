@@ -20,10 +20,13 @@ export function DoodleEditor({ photoSrc, onSave, onCancel, initialLayers = [] }:
   const [penColor, setPenColor] = useState<PenColor>('#e05280')
   const [penSize, setPenSize] = useState<PenSize>(4)
   const [selectedStamp, setSelectedStamp] = useState<StampId>('heart')
+  const [stampScale, setStampScale] = useState(2)
   const [textColor, setTextColor] = useState<PenColor>('#1a1a1a')
   const [isDrawing, setIsDrawing] = useState(false)
   const [textInput, setTextInput] = useState<{ x: number; y: number } | null>(null)
+  const [movingIndex, setMovingIndex] = useState<number | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const touchCountRef = useRef(0)
 
   const getPosition = useCallback(
     (e: React.TouchEvent | React.MouseEvent) => {
@@ -42,10 +45,45 @@ export function DoodleEditor({ photoSrc, onSave, onCancel, initialLayers = [] }:
     [],
   )
 
+  const findLayerAt = useCallback(
+    (x: number, y: number): number | null => {
+      // 後ろから（上のレイヤーから）探す
+      for (let i = layers.length - 1; i >= 0; i--) {
+        const layer = layers[i]
+        if (!layer) continue
+
+        if (layer.type === 'stamp') {
+          const dist = Math.sqrt((layer.x - x) ** 2 + (layer.y - y) ** 2)
+          if (dist < 0.05 * layer.scale) return i
+        }
+        if (layer.type === 'text') {
+          const dist = Math.sqrt((layer.x - x) ** 2 + (layer.y - y) ** 2)
+          if (dist < 0.08) return i
+        }
+      }
+      return null
+    },
+    [layers],
+  )
+
   const handlePointerDown = useCallback(
     (e: React.TouchEvent | React.MouseEvent) => {
+      // 2本指はスクロール用（ペンモード時）
+      if ('touches' in e) {
+        touchCountRef.current = e.touches.length
+        if (e.touches.length >= 2) return
+      }
+
       const pos = getPosition(e)
       if (!pos) return
+
+      if (tool === 'move') {
+        const idx = findLayerAt(pos.x, pos.y)
+        if (idx !== null) {
+          setMovingIndex(idx)
+        }
+        return
+      }
 
       if (tool === 'pen') {
         setIsDrawing(true)
@@ -58,7 +96,7 @@ export function DoodleEditor({ photoSrc, onSave, onCancel, initialLayers = [] }:
       if (tool === 'stamp') {
         setLayers((prev) => [
           ...prev,
-          { type: 'stamp', stampId: selectedStamp, x: pos.x, y: pos.y, scale: 2 },
+          { type: 'stamp', stampId: selectedStamp, x: pos.x, y: pos.y, scale: stampScale, rotation: 0 },
         ])
       }
 
@@ -66,16 +104,34 @@ export function DoodleEditor({ photoSrc, onSave, onCancel, initialLayers = [] }:
         setTextInput(pos)
       }
     },
-    [tool, penColor, penSize, selectedStamp, getPosition],
+    [tool, penColor, penSize, selectedStamp, stampScale, getPosition, findLayerAt],
   )
 
   const handlePointerMove = useCallback(
     (e: React.TouchEvent | React.MouseEvent) => {
-      if (!isDrawing || tool !== 'pen') return
-      e.preventDefault()
+      // 2本指はスクロール
+      if ('touches' in e && (e.touches.length >= 2 || touchCountRef.current >= 2)) return
 
       const pos = getPosition(e)
       if (!pos) return
+
+      // 移動モード
+      if (tool === 'move' && movingIndex !== null) {
+        e.preventDefault()
+        setLayers((prev) =>
+          prev.map((layer, i) => {
+            if (i !== movingIndex) return layer
+            if (layer.type === 'stamp') return { ...layer, x: pos.x, y: pos.y }
+            if (layer.type === 'text') return { ...layer, x: pos.x, y: pos.y }
+            return layer
+          }),
+        )
+        return
+      }
+
+      // ペン描画
+      if (!isDrawing || tool !== 'pen') return
+      e.preventDefault()
 
       setLayers((prev) =>
         prev.map((layer, i) =>
@@ -85,11 +141,13 @@ export function DoodleEditor({ photoSrc, onSave, onCancel, initialLayers = [] }:
         ),
       )
     },
-    [isDrawing, tool, getPosition],
+    [isDrawing, tool, movingIndex, getPosition],
   )
 
   const handlePointerUp = useCallback(() => {
     setIsDrawing(false)
+    setMovingIndex(null)
+    touchCountRef.current = 0
   }, [])
 
   const handleTextSubmit = useCallback(
@@ -97,7 +155,7 @@ export function DoodleEditor({ photoSrc, onSave, onCancel, initialLayers = [] }:
       if (!textInput) return
       setLayers((prev) => [
         ...prev,
-        { type: 'text', content, x: textInput.x, y: textInput.y, color: textColor, fontSize: 24 },
+        { type: 'text', content, x: textInput.x, y: textInput.y, color: textColor, fontSize: 24, rotation: 0 },
       ])
       setTextInput(null)
     },
@@ -112,19 +170,11 @@ export function DoodleEditor({ photoSrc, onSave, onCancel, initialLayers = [] }:
     <div className="flex min-h-dvh flex-col bg-cream">
       {/* ヘッダー */}
       <div className="flex items-center justify-between px-4 py-3">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="text-sm text-ink-light"
-        >
+        <button type="button" onClick={onCancel} className="text-sm text-ink-light">
           キャンセル
         </button>
         <p className="receipt-text text-[10px] tracking-[0.3em] text-ink-light">DOODLE</p>
-        <button
-          type="button"
-          onClick={() => onSave(layers)}
-          className="text-sm font-bold text-ink"
-        >
+        <button type="button" onClick={() => onSave(layers)} className="text-sm font-bold text-ink">
           完了
         </button>
       </div>
@@ -132,7 +182,8 @@ export function DoodleEditor({ photoSrc, onSave, onCancel, initialLayers = [] }:
       {/* キャンバス */}
       <div
         ref={containerRef}
-        className="relative mx-4 flex-1 touch-none border border-cream-dark"
+        className="relative mx-4 flex-1 border border-cream-dark"
+        style={{ touchAction: tool === 'pen' ? 'none' : 'pan-y' }}
         onMouseDown={handlePointerDown}
         onMouseMove={handlePointerMove}
         onMouseUp={handlePointerUp}
@@ -159,11 +210,13 @@ export function DoodleEditor({ photoSrc, onSave, onCancel, initialLayers = [] }:
           penColor={penColor}
           penSize={penSize}
           selectedStamp={selectedStamp}
+          stampScale={stampScale}
           textColor={textColor}
           onToolChange={setTool}
           onPenColorChange={setPenColor}
           onPenSizeChange={setPenSize}
           onStampChange={setSelectedStamp}
+          onStampScaleChange={setStampScale}
           onTextColorChange={setTextColor}
           onUndo={handleUndo}
         />

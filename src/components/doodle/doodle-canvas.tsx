@@ -11,17 +11,27 @@ type DoodleCanvasProps = {
   readonly className?: string
 }
 
-function drawStamp(ctx: CanvasRenderingContext2D, stampId: StampId, x: number, y: number, scale: number) {
+const STAMP_COLORS: Record<string, string> = {
+  heart: '#e05280',
+  star: '#d4a520',
+  sparkle: '#d4a520',
+  ribbon: '#e05280',
+  flower: '#2aaa6a',
+  music: '#1a1a1a',
+}
+
+function drawStamp(ctx: CanvasRenderingContext2D, stampId: StampId, x: number, y: number, scale: number, rotation: number) {
   const stamp = STAMPS.find((s) => s.id === stampId)
   if (!stamp) return
 
   ctx.save()
   ctx.translate(x, y)
+  ctx.rotate((rotation * Math.PI) / 180)
   ctx.scale(scale, scale)
   ctx.translate(-12, -12)
 
   const path = new Path2D(stamp.svg)
-  ctx.fillStyle = stampId === 'heart' ? '#e05280' : stampId === 'star' ? '#d4a520' : '#1a1a1a'
+  ctx.fillStyle = STAMP_COLORS[stampId] ?? '#1a1a1a'
   ctx.fill(path)
   ctx.restore()
 }
@@ -62,14 +72,18 @@ export function DoodleCanvas({ photoSrc, layers, className = '' }: DoodleCanvasP
       }
 
       if (layer.type === 'stamp') {
-        drawStamp(ctx, layer.stampId, layer.x * canvas.width, layer.y * canvas.height, layer.scale)
+        drawStamp(ctx, layer.stampId, layer.x * canvas.width, layer.y * canvas.height, layer.scale, layer.rotation)
       }
 
       if (layer.type === 'text') {
+        ctx.save()
+        ctx.translate(layer.x * canvas.width, layer.y * canvas.height)
+        ctx.rotate((layer.rotation * Math.PI) / 180)
         ctx.font = `bold ${layer.fontSize}px "Zen Maru Gothic", sans-serif`
         ctx.fillStyle = layer.color
         ctx.textAlign = 'center'
-        ctx.fillText(layer.content, layer.x * canvas.width, layer.y * canvas.height)
+        ctx.fillText(layer.content, 0, 0)
+        ctx.restore()
       }
     }
   }, [layers])

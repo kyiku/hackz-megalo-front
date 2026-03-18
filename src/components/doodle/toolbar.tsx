@@ -1,18 +1,20 @@
 'use client'
 
 import type { PenColor, PenSize, StampId, Tool } from './types'
-import { PEN_COLORS, PEN_SIZES, STAMPS } from './types'
+import { PEN_COLORS, PEN_SIZES, STAMPS, STAMP_SCALES } from './types'
 
 type ToolbarProps = {
   readonly tool: Tool
   readonly penColor: PenColor
   readonly penSize: PenSize
   readonly selectedStamp: StampId
+  readonly stampScale: number
   readonly textColor: PenColor
   readonly onToolChange: (tool: Tool) => void
   readonly onPenColorChange: (color: PenColor) => void
   readonly onPenSizeChange: (size: PenSize) => void
   readonly onStampChange: (stamp: StampId) => void
+  readonly onStampScaleChange: (scale: number) => void
   readonly onTextColorChange: (color: PenColor) => void
   readonly onUndo: () => void
 }
@@ -21,20 +23,23 @@ const TOOL_LABELS: Record<Tool, string> = {
   pen: 'ペン',
   stamp: 'スタンプ',
   text: 'テキスト',
+  move: '移動',
 }
 
-const TOOLS: readonly Tool[] = ['pen', 'stamp', 'text']
+const TOOLS: readonly Tool[] = ['pen', 'stamp', 'text', 'move']
 
 export function Toolbar({
   tool,
   penColor,
   penSize,
   selectedStamp,
+  stampScale,
   textColor,
   onToolChange,
   onPenColorChange,
   onPenSizeChange,
   onStampChange,
+  onStampScaleChange,
   onTextColorChange,
   onUndo,
 }: ToolbarProps) {
@@ -108,25 +113,44 @@ export function Toolbar({
         </div>
       )}
 
-      {/* スタンプ選択 */}
+      {/* スタンプ選択 + サイズ */}
       {tool === 'stamp' && (
-        <div className="flex items-center gap-1.5">
-          {STAMPS.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              aria-label={`スタンプ: ${s.label}`}
-              onClick={() => onStampChange(s.id)}
-              className={[
-                'flex h-9 w-9 items-center justify-center transition-all',
-                selectedStamp === s.id ? 'bg-cream-dark' : 'hover:bg-cream-dark/50',
-              ].join(' ')}
-            >
-              <svg viewBox="0 0 24 24" className="h-5 w-5">
-                <path d={s.svg} fill="#1a1a1a" />
-              </svg>
-            </button>
-          ))}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-1.5">
+            {STAMPS.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                aria-label={`スタンプ: ${s.label}`}
+                onClick={() => onStampChange(s.id)}
+                className={[
+                  'flex h-9 w-9 items-center justify-center transition-all',
+                  selectedStamp === s.id ? 'bg-cream-dark' : 'hover:bg-cream-dark/50',
+                ].join(' ')}
+              >
+                <svg viewBox="0 0 24 24" className="h-5 w-5">
+                  <path d={s.svg} fill="#1a1a1a" />
+                </svg>
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-ink-light">サイズ</span>
+            {STAMP_SCALES.map((s) => (
+              <button
+                key={s}
+                type="button"
+                aria-label={`スタンプサイズ: ${s}x`}
+                onClick={() => onStampScaleChange(s)}
+                className={[
+                  'px-2 py-1 text-xs transition-all',
+                  stampScale === s ? 'bg-ink text-cream' : 'bg-cream-dark/50 text-ink-light',
+                ].join(' ')}
+              >
+                {s}x
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
@@ -150,6 +174,13 @@ export function Toolbar({
             ))}
           </div>
         </div>
+      )}
+
+      {/* 移動モード */}
+      {tool === 'move' && (
+        <p className="receipt-text text-[10px] text-ink-light">
+          スタンプやテキストをドラッグして移動できます
+        </p>
       )}
     </div>
   )
