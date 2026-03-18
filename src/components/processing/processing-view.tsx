@@ -127,9 +127,9 @@ export function ProcessingView({ sessionId: routeSessionId }: ProcessingViewProp
         )
 
         // ClayCode画像生成 + S3アップロード (downloadCodeがあれば)
-        const sessionAny = session as Record<string, unknown>
-        const downloadCode = sessionAny.downloadCode as string | undefined
-        const claycodeUploadUrl = sessionAny.claycodeUploadUrl as string | undefined
+        const storeState = useSessionStore.getState()
+        const downloadCode = storeState.downloadCode ?? (session as Record<string, unknown>).downloadCode as string | undefined
+        const claycodeUploadUrl = storeState.claycodeUploadUrl ?? (session as Record<string, unknown>).claycodeUploadUrl as string | undefined
         const claycodePromise = (downloadCode && claycodeUploadUrl)
           ? generateClaycode(downloadCode).then(async (dataUrl) => {
               const blob = dataUrlToBlob(dataUrl)

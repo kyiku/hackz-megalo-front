@@ -32,6 +32,7 @@ type SessionState = {
   readonly collageUrl: string | null
   readonly caption: string | null
   readonly downloadCode: string | null
+  readonly claycodeUploadUrl: string | null
 }
 
 type SessionActions = {
@@ -39,7 +40,7 @@ type SessionActions = {
   readonly addPhoto: (photoDataUrl: string) => void
   readonly replacePhoto: (index: number, photoDataUrl: string) => void
   readonly clearPhotos: () => void
-  readonly startSession: (sessionId: string, uploadUrls?: readonly UploadUrl[]) => void
+  readonly startSession: (sessionId: string, uploadUrls?: readonly UploadUrl[], downloadCode?: string, claycodeUploadUrl?: string) => void
   readonly setProcessingStep: (step: ProcessingStep) => void
   readonly setResult: (collageUrl: string, caption: string | null) => void
   readonly setDownloadCode: (code: string) => void
@@ -55,6 +56,7 @@ const initialState: SessionState = {
   collageUrl: null,
   caption: null,
   downloadCode: null,
+  claycodeUploadUrl: null,
 }
 
 export const useSessionStore = create<SessionState & SessionActions>()((set) => ({
@@ -74,7 +76,8 @@ export const useSessionStore = create<SessionState & SessionActions>()((set) => 
 
   clearPhotos: () => set({ photos: [] }),
 
-  startSession: (sessionId, uploadUrls) => set({ sessionId, uploadUrls: uploadUrls ?? [] }),
+  startSession: (sessionId, uploadUrls, downloadCode, claycodeUploadUrl) =>
+    set({ sessionId, uploadUrls: uploadUrls ?? [], downloadCode: downloadCode ?? null, claycodeUploadUrl: claycodeUploadUrl ?? null }),
 
   setProcessingStep: (step) => set({ processingStep: step }),
 
