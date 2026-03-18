@@ -30,7 +30,7 @@ const STEP_MAP: Record<string, string> = {
 
 export function ProcessingView({ sessionId: routeSessionId }: ProcessingViewProps) {
   const router = useRouter()
-  const { photos, filter, processingStep, setProcessingStep, setResult } = useSessionStore()
+  const { photos, filter, processingStep, setProcessingStep, setResult, sessionId: existingSessionId, uploadUrls: existingUploadUrls } = useSessionStore()
   const [error, setError] = useState<string | null>(null)
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
@@ -78,11 +78,15 @@ export function ProcessingView({ sessionId: routeSessionId }: ProcessingViewProp
         }
 
         setProcessingStep('uploading')
-        const session = await createSession({
-          filterType: filter.type,
-          filter: toApiFilterName(filter.value),
-          photoCount: photos.length,
-        })
+
+        // 撮影中にセッションが先行作成済みならそれを再利用
+        const session = existingSessionId && existingUploadUrls.length > 0
+          ? { sessionId: existingSessionId, uploadUrls: existingUploadUrls, websocketUrl: '' }
+          : await createSession({
+              filterType: filter.type,
+              filter: toApiFilterName(filter.value),
+              photoCount: photos.length,
+            })
 
         if (abortController.signal.aborted) return
         setCurrentSessionId(session.sessionId)
@@ -137,7 +141,7 @@ export function ProcessingView({ sessionId: routeSessionId }: ProcessingViewProp
       wsRef.current?.close()
       wsRef.current = null
     }
-  }, [routeSessionId, photos, filter, setProcessingStep, setResult, router, handleWsEvent])
+  }, [routeSessionId, photos, filter, setProcessingStep, setResult, router, handleWsEvent, existingSessionId, existingUploadUrls])
 
   if (error) {
     return (

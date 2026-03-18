@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import { usePcAudio } from '@/hooks/use-pc-audio'
 import { useShootingSync } from '@/hooks/use-shooting-sync'
 import { useWebRtc } from '@/hooks/use-webrtc'
 import { useRoomStore } from '@/stores/room-store'
@@ -24,6 +25,7 @@ export function PcView() {
   const [lastShutterIndex, setLastShutterIndex] = useState<number | null>(null)
   const [pcPhotoCount, setPcPhotoCount] = useState(0)
   const initializedRef = useRef(false)
+  const audio = usePcAudio()
 
   // ルーム作成 + WebSocket接続（1回だけ実行）
   useEffect(() => {
@@ -93,15 +95,17 @@ export function PcView() {
     return () => ws.removeEventListener('message', handler)
   }, [ws, setPhase, setPhoneConnected, setSelectedFilter, setSessionId])
 
-  // 撮影イベント受信
+  // 撮影イベント受信 + 音声演出
   const handleShootingEvent = useCallback(
-    (data: { event: string; count?: number; photoIndex?: number; photoCount?: number }) => {
+    (data: { event: string; count?: number; photoIndex?: number; photoCount?: number; sessionId?: string }) => {
       if (data.event === 'countdown' && data.count !== undefined) {
         setCountdownValue(data.count)
+        audio.playCountdown(data.count)
       }
       if (data.event === 'shutter') {
         setCountdownValue(null)
         setLastShutterIndex(data.photoIndex ?? null)
+        audio.playShutter()
         if (data.photoCount !== undefined) {
           setPcPhotoCount(data.photoCount)
         }
@@ -109,13 +113,26 @@ export function PcView() {
       if (data.event === 'shooting_start') {
         setPhase('shooting')
         setPcPhotoCount(0)
+        audio.startBgm()
+
+        // セッションIDが含まれていればsubscribeしてやじコメントを受信
+        const sid = data.sessionId
+        if (sid && ws) {
+          setSessionId(sid)
+          ws.send(JSON.stringify({
+            action: 'subscribe',
+            data: { sessionId: sid },
+          }))
+        }
       }
       if (data.event === 'shooting_complete') {
         setCountdownValue(null)
         setPhase('preview')
+        audio.stopBgm()
+        audio.playFanfare()
       }
     },
-    [setPhase],
+    [setPhase, setSessionId, ws, audio],
   )
 
   useShootingSync({
@@ -123,6 +140,13 @@ export function PcView() {
     roomId,
     onEvent: handleShootingEvent,
   })
+
+  // フェーズ変更時の音声演出
+  useEffect(() => {
+    if (phase === 'complete') {
+      audio.playComplete()
+    }
+  }, [phase, audio])
 
   if (!roomId) return null
 
