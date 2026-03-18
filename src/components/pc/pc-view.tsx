@@ -95,7 +95,7 @@ export function PcView() {
 
   // 撮影イベント受信
   const handleShootingEvent = useCallback(
-    (data: { event: string; count?: number; photoIndex?: number; photoCount?: number }) => {
+    (data: { event: string; count?: number; photoIndex?: number; photoCount?: number; sessionId?: string }) => {
       if (data.event === 'countdown' && data.count !== undefined) {
         setCountdownValue(data.count)
       }
@@ -109,13 +109,23 @@ export function PcView() {
       if (data.event === 'shooting_start') {
         setPhase('shooting')
         setPcPhotoCount(0)
+
+        // セッションIDが含まれていればsubscribeしてやじコメントを受信
+        const sid = data.sessionId
+        if (sid && ws) {
+          setSessionId(sid)
+          ws.send(JSON.stringify({
+            action: 'subscribe',
+            data: { sessionId: sid },
+          }))
+        }
       }
       if (data.event === 'shooting_complete') {
         setCountdownValue(null)
         setPhase('preview')
       }
     },
-    [setPhase],
+    [setPhase, setSessionId, ws],
   )
 
   useShootingSync({
