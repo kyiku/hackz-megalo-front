@@ -74,22 +74,27 @@ export function usePhoneSync() {
         ...(sessionId ? { sessionId } : {}),
       })
 
-      // doodleフェーズに入ったら写真サムネイルをPCに送信
+      // doodleフェーズに入ったら写真サムネイルをPCに1枚ずつ送信
+      // (WebSocket 32KBフレーム制限のため一括送信不可)
       if (phase === 'doodle') {
         const sendPhotos = async () => {
-          // photosが空の場合は最大3回リトライ
           for (let attempt = 0; attempt < 3; attempt++) {
             const currentPhotos = useSessionStore.getState().photos
             if (currentPhotos.length > 0) {
               try {
-                const thumbnails = await Promise.all(
-                  currentPhotos.map((photo) => resizeToThumbnail(photo, 200)),
-                )
-                send('shooting_sync', {
-                  roomId,
-                  event: 'photo_sync',
-                  photos: thumbnails,
-                })
+                // 1枚ずつサムネイル化して送信 (32KB制限回避)
+                for (let i = 0; i < currentPhotos.length; i++) {
+                  const photo = currentPhotos[i]
+                  if (!photo) continue
+                  const thumbnail = await resizeToThumbnail(photo, 150)
+                  send('shooting_sync', {
+                    roomId,
+                    event: 'photo_sync',
+                    photoIndex: i,
+                    photoCount: currentPhotos.length,
+                    photoData: thumbnail,
+                  })
+                }
               } catch {
                 // サムネイル生成失敗は無視
               }
