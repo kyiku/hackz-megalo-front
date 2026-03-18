@@ -8,6 +8,7 @@ import { useRoomStore } from '@/stores/room-store'
 import { useWsStore } from '@/stores/ws-store'
 
 import { CompleteScreen } from './complete-screen'
+import { DoodleScreen } from './doodle-screen'
 import { FilterScreen } from './filter-screen'
 import { IdleScreen } from './idle-screen'
 import { PreviewScreen } from './preview-screen'
@@ -61,7 +62,7 @@ export function PcView() {
 
           if (syncEvent === 'phase_change') {
             const newPhase = msg.data.phase as string
-            if (['filter-select', 'shooting', 'preview', 'processing', 'result'].includes(newPhase)) {
+            if (['filter-select', 'shooting', 'preview', 'doodle', 'processing', 'result'].includes(newPhase)) {
               setPhase(newPhase as Parameters<typeof setPhase>[0])
               setPhoneConnected(true)
             }
@@ -143,6 +144,8 @@ export function PcView() {
       )
     case 'preview':
       return <PreviewScreen />
+    case 'doodle':
+      return <DoodleScreen />
     case 'processing':
       return <ProcessingScreen />
     case 'result':

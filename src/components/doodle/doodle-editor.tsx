@@ -11,10 +11,11 @@ type DoodleEditorProps = {
   readonly photoSrc: string
   readonly onSave: (layers: readonly DoodleLayer[]) => void
   readonly onCancel: () => void
+  readonly onLayerChange?: (layers: readonly DoodleLayer[]) => void
   readonly initialLayers?: readonly DoodleLayer[]
 }
 
-export function DoodleEditor({ photoSrc, onSave, onCancel, initialLayers = [] }: DoodleEditorProps) {
+export function DoodleEditor({ photoSrc, onSave, onCancel, onLayerChange, initialLayers = [] }: DoodleEditorProps) {
   const [layers, setLayers] = useState<readonly DoodleLayer[]>(initialLayers)
   const [tool, setTool] = useState<Tool>('pen')
   const [penColor, setPenColor] = useState<PenColor>('#e05280')
@@ -45,9 +46,19 @@ export function DoodleEditor({ photoSrc, onSave, onCancel, initialLayers = [] }:
     [],
   )
 
+  const updateLayers = useCallback(
+    (updater: (prev: readonly DoodleLayer[]) => readonly DoodleLayer[]) => {
+      setLayers((prev) => {
+        const next = updater(prev)
+        onLayerChange?.(next)
+        return next
+      })
+    },
+    [onLayerChange],
+  )
+
   const findLayerAt = useCallback(
     (x: number, y: number): number | null => {
-      // 後ろから（上のレイヤーから）探す
       for (let i = layers.length - 1; i >= 0; i--) {
         const layer = layers[i]
         if (!layer) continue
@@ -87,14 +98,14 @@ export function DoodleEditor({ photoSrc, onSave, onCancel, initialLayers = [] }:
 
       if (tool === 'pen') {
         setIsDrawing(true)
-        setLayers((prev) => [
+        updateLayers((prev) => [
           ...prev,
           { type: 'path', points: [pos], color: penColor, size: penSize },
         ])
       }
 
       if (tool === 'stamp') {
-        setLayers((prev) => [
+        updateLayers((prev) => [
           ...prev,
           { type: 'stamp', stampId: selectedStamp, x: pos.x, y: pos.y, scale: stampScale, rotation: 0 },
         ])
@@ -104,7 +115,7 @@ export function DoodleEditor({ photoSrc, onSave, onCancel, initialLayers = [] }:
         setTextInput(pos)
       }
     },
-    [tool, penColor, penSize, selectedStamp, stampScale, getPosition, findLayerAt],
+    [tool, penColor, penSize, selectedStamp, stampScale, getPosition, findLayerAt, updateLayers],
   )
 
   const handlePointerMove = useCallback(
@@ -118,7 +129,7 @@ export function DoodleEditor({ photoSrc, onSave, onCancel, initialLayers = [] }:
       // 移動モード
       if (tool === 'move' && movingIndex !== null) {
         e.preventDefault()
-        setLayers((prev) =>
+        updateLayers((prev) =>
           prev.map((layer, i) => {
             if (i !== movingIndex) return layer
             if (layer.type === 'stamp') return { ...layer, x: pos.x, y: pos.y }
@@ -133,7 +144,7 @@ export function DoodleEditor({ photoSrc, onSave, onCancel, initialLayers = [] }:
       if (!isDrawing || tool !== 'pen') return
       e.preventDefault()
 
-      setLayers((prev) =>
+      updateLayers((prev) =>
         prev.map((layer, i) =>
           i === prev.length - 1 && layer.type === 'path'
             ? { ...layer, points: [...layer.points, pos] }
@@ -141,7 +152,7 @@ export function DoodleEditor({ photoSrc, onSave, onCancel, initialLayers = [] }:
         ),
       )
     },
-    [isDrawing, tool, movingIndex, getPosition],
+    [isDrawing, tool, movingIndex, getPosition, updateLayers],
   )
 
   const handlePointerUp = useCallback(() => {
@@ -153,18 +164,18 @@ export function DoodleEditor({ photoSrc, onSave, onCancel, initialLayers = [] }:
   const handleTextSubmit = useCallback(
     (content: string) => {
       if (!textInput) return
-      setLayers((prev) => [
+      updateLayers((prev) => [
         ...prev,
         { type: 'text', content, x: textInput.x, y: textInput.y, color: textColor, fontSize: 24, rotation: 0 },
       ])
       setTextInput(null)
     },
-    [textInput, textColor],
+    [textInput, textColor, updateLayers],
   )
 
   const handleUndo = useCallback(() => {
-    setLayers((prev) => prev.slice(0, -1))
-  }, [])
+    updateLayers((prev) => prev.slice(0, -1))
+  }, [updateLayers])
 
   return (
     <div className="flex min-h-dvh flex-col bg-cream">
