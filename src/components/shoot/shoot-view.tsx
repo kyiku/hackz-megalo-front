@@ -115,7 +115,13 @@ export function ShootView() {
       })
       setYajiSessionId(session.sessionId)
       setSessionId(session.sessionId)
-      startSession(session.sessionId, session.uploadUrls)
+      const sessionAny = session as Record<string, unknown>
+      startSession(
+        session.sessionId,
+        session.uploadUrls,
+        sessionAny.downloadCode as string | undefined,
+        sessionAny.claycodeUploadUrl as string | undefined,
+      )
       sendSync('shooting_start', {
         totalPhotos: TOTAL_PHOTOS,
         sessionId: session.sessionId,
