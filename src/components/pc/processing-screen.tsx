@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { ProcessingSteps } from '@/components/processing/processing-steps'
 import { ReceiptFrame } from '@/components/ui/receipt-frame'
@@ -16,31 +16,39 @@ const STEP_MAP: Record<string, string> = {
 }
 
 export function ProcessingScreen() {
-  const { sessionId } = useRoomStore()
+  const { sessionId, setPhase } = useRoomStore()
   const { ws } = useWsStore()
   const [currentStep, setCurrentStep] = useState('uploading')
+  const subscribedRef = useRef<string | null>(null)
 
-  // WebSocketでstatusUpdateを受信
+  // WebSocketでstatusUpdate / completedを受信
   useEffect(() => {
     if (!ws || !sessionId) return
 
-    if (ws.readyState === WebSocket.OPEN) {
+    // 同一セッションへの重複subscribeを防止
+    if (subscribedRef.current !== sessionId) {
       ws.send(JSON.stringify({
         action: 'subscribe',
         data: { sessionId },
       }))
+      subscribedRef.current = sessionId
     }
 
     const handler = (event: MessageEvent) => {
       try {
         const msg = JSON.parse(event.data as string) as {
           type: string
-          data: { step?: string }
+          data: { step?: string; sessionId?: string }
         }
 
         if (msg.type === 'statusUpdate' && msg.data.step) {
           const mapped = STEP_MAP[msg.data.step] ?? msg.data.step
           setCurrentStep(mapped)
+        }
+
+        if (msg.type === 'completed') {
+          setCurrentStep('complete')
+          setPhase('result')
         }
       } catch (err) {
         if (process.env.NODE_ENV === 'development') {
@@ -53,7 +61,14 @@ export function ProcessingScreen() {
     return () => {
       ws.removeEventListener('message', handler)
     }
-  }, [ws, sessionId])
+  }, [ws, sessionId, setPhase])
+
+  // ws再接続時にsubscribeをリセット
+  useEffect(() => {
+    if (!ws) {
+      subscribedRef.current = null
+    }
+  }, [ws])
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center px-8">
