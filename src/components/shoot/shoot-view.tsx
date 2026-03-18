@@ -3,6 +3,8 @@
 import { useRouter } from 'next/navigation'
 import { useCallback, useRef, useState } from 'react'
 
+import type { PhoneArOverlayHandle } from './phone-ar-overlay'
+
 import { StepIndicator } from '@/components/ui/step-indicator'
 import { useCamera } from '@/hooks/use-camera'
 import { useCountdown } from '@/hooks/use-countdown'
@@ -17,12 +19,14 @@ import { useWsStore } from '@/stores/ws-store'
 
 import { CountdownOverlay } from './countdown-overlay'
 import { FlashOverlay } from './flash-overlay'
+import { PhoneArOverlay } from './phone-ar-overlay'
 
 const TOTAL_PHOTOS = 4
 
 export function ShootView() {
   const router = useRouter()
-  const { videoRef, isReady, error, capture, stream } = useCamera()
+  const { videoRef, isReady, error, capture, captureWithOverlay, stream } = useCamera()
+  const arOverlayRef = useRef<PhoneArOverlayHandle>(null)
   const { filter, addPhoto, photos, startSession } = useSessionStore()
   const { roomId, setSessionId } = useRoomStore()
   const { ws, send } = useWsStore()
@@ -93,7 +97,8 @@ export function ShootView() {
 
       await startCountdown(3)
 
-      const dataUrl = capture()
+      const overlayCanvas = arOverlayRef.current?.getCanvas() ?? null
+      const dataUrl = captureWithOverlay(overlayCanvas) ?? capture()
       if (dataUrl) {
         addPhoto(dataUrl)
         setFlashTrigger((prev) => prev + 1)
@@ -109,7 +114,7 @@ export function ShootView() {
     sendSync('shooting_complete')
     isShootingRef.current = false
     router.push('/preview')
-  }, [photoCount, startCountdown, capture, addPhoto, router, sendSync, filter, setSessionId, startSession])
+  }, [photoCount, startCountdown, capture, captureWithOverlay, addPhoto, router, sendSync, filter, setSessionId, startSession])
 
   // 音声コマンドで撮影開始（「撮って」「チーズ」等）
   const { isSupported: voiceSupported } = useVoiceCommand({
@@ -148,6 +153,7 @@ export function ShootView() {
           muted
           style={{ transform: 'scaleX(-1)' }}
         />
+        <PhoneArOverlay ref={arOverlayRef} videoRef={videoRef} isActive={isReady} />
         <CountdownOverlay count={count} />
         <FlashOverlay trigger={flashTrigger} />
       </div>
