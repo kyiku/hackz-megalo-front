@@ -8,6 +8,7 @@ type UseCameraReturn = {
   readonly isReady: boolean
   readonly error: string | null
   readonly capture: () => string | null
+  readonly captureWithOverlay: (overlayCanvas: HTMLCanvasElement | null) => string | null
 }
 
 export function useCamera(): UseCameraReturn {
@@ -90,5 +91,36 @@ export function useCamera(): UseCameraReturn {
     return canvas.toDataURL('image/jpeg', 0.85)
   }, [])
 
-  return { videoRef, stream, isReady, error, capture }
+  const captureWithOverlay = useCallback(
+    (overlayCanvas: HTMLCanvasElement | null): string | null => {
+      const video = videoRef.current
+      if (!video) return null
+
+      if (!canvasRef.current) {
+        canvasRef.current = document.createElement('canvas')
+      }
+      const canvas = canvasRef.current
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return null
+
+      // ミラー反転してカメラ映像を描画
+      ctx.translate(canvas.width, 0)
+      ctx.scale(-1, 1)
+      ctx.drawImage(video, 0, 0)
+      ctx.setTransform(1, 0, 0, 1, 0, 0)
+
+      // AR オーバーレイを合成（オーバーレイキャンバスがあれば）
+      if (overlayCanvas && overlayCanvas.width > 0 && overlayCanvas.height > 0) {
+        ctx.drawImage(overlayCanvas, 0, 0, canvas.width, canvas.height)
+      }
+
+      return canvas.toDataURL('image/jpeg', 0.85)
+    },
+    [],
+  )
+
+  return { videoRef, stream, isReady, error, capture, captureWithOverlay }
 }

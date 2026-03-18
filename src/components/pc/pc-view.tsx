@@ -18,7 +18,7 @@ import { ResultScreen } from './result-screen'
 import { ShootingScreen } from './shooting-screen'
 
 export function PcView() {
-  const { roomId, phase, createRoom, setPhase, setPhoneConnected, setSelectedFilter, setSessionId } = useRoomStore()
+  const { roomId, phase, createRoom, setPhase, setPhoneConnected, setSelectedFilter, setSessionId, setPreviewPhotos } = useRoomStore()
   const { ws, connect } = useWsStore()
   const wsRef = useRef<WebSocket | null>(null)
   const [countdownValue, setCountdownValue] = useState<number | null>(null)
@@ -74,6 +74,13 @@ export function PcView() {
             }
           }
 
+          if (syncEvent === 'photo_sync') {
+            const photos = msg.data.photos as string[] | undefined
+            if (photos && Array.isArray(photos)) {
+              setPreviewPhotos(photos)
+            }
+          }
+
           if (syncEvent === 'filter_select') {
             const filterId = msg.data.filterId as string
             if (filterId) {
@@ -93,7 +100,7 @@ export function PcView() {
 
     ws.addEventListener('message', handler)
     return () => ws.removeEventListener('message', handler)
-  }, [ws, setPhase, setPhoneConnected, setSelectedFilter, setSessionId])
+  }, [ws, setPhase, setPhoneConnected, setSelectedFilter, setSessionId, setPreviewPhotos])
 
   // 撮影イベント受信 + 音声演出
   const handleShootingEvent = useCallback(
@@ -136,7 +143,7 @@ export function PcView() {
   )
 
   useShootingSync({
-    wsRef,
+    ws,
     roomId,
     onEvent: handleShootingEvent,
   })
