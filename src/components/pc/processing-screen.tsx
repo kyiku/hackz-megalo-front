@@ -24,11 +24,12 @@ export function ProcessingScreen() {
   useEffect(() => {
     if (!ws || !sessionId) return
 
-    // セッションをsubscribe
-    ws.send(JSON.stringify({
-      action: 'subscribe',
-      data: { sessionId },
-    }))
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        action: 'subscribe',
+        data: { sessionId },
+      }))
+    }
 
     const handler = (event: MessageEvent) => {
       try {
@@ -41,13 +42,17 @@ export function ProcessingScreen() {
           const mapped = STEP_MAP[msg.data.step] ?? msg.data.step
           setCurrentStep(mapped)
         }
-      } catch {
-        // ignore
+      } catch (err) {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Failed to parse status update:', err)
+        }
       }
     }
 
     ws.addEventListener('message', handler)
-    return () => ws.removeEventListener('message', handler)
+    return () => {
+      ws.removeEventListener('message', handler)
+    }
   }, [ws, sessionId])
 
   return (
