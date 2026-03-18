@@ -157,7 +157,7 @@ export function ShootView() {
   }, [photoCount, startCountdown, capture, captureWithOverlay, addPhoto, router, sendSync, filter, setSessionId, startSession])
 
   // 音声コマンドで撮影開始（「撮って」「チーズ」等）
-  const { isSupported: voiceSupported } = useVoiceCommand({
+  useVoiceCommand({
     isActive: isReady && !isRunning && photoCount < TOTAL_PHOTOS,
     onTrigger: shootSequence,
   })
@@ -220,11 +220,6 @@ export function ShootView() {
           <p className="animate-pulse font-mono text-sm text-white/60">撮影中...</p>
         )}
 
-        {voiceSupported && !isRunning && photoCount < TOTAL_PHOTOS && (
-          <p className="font-mono text-[10px] text-white/40">
-            「撮って」「チーズ」で撮影開始
-          </p>
-        )}
       </div>
     </div>
   )
