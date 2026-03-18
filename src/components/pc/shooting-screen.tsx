@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { ArFilterOverlay } from './ar-filter-overlay'
 import { YajiComment } from './yaji-comment'
@@ -25,6 +25,31 @@ export function ShootingScreen({
   roomId,
 }: ShootingScreenProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
+  type ArEffect = 'dog' | 'cat' | 'sparkle' | 'crown' | 'heart'
+  const [phoneEffect, setPhoneEffect] = useState<ArEffect | null>(null)
+
+  // Phone側からのAR同期を受信
+  useEffect(() => {
+    const currentWs = wsRef.current
+    if (!currentWs) return
+
+    const handler = (event: MessageEvent) => {
+      try {
+        const msg = JSON.parse(event.data as string) as {
+          type: string
+          data: { event?: string; effect?: string | null }
+        }
+        if (msg.type === 'shooting_sync' && msg.data.event === 'ar_sync') {
+          setPhoneEffect((msg.data.effect as ArEffect) ?? null)
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    currentWs.addEventListener('message', handler)
+    return () => currentWs.removeEventListener('message', handler)
+  }, [wsRef])
 
   const handleEffectChange = useCallback(
     (effect: string | null) => {
@@ -100,7 +125,7 @@ export function ShootingScreen({
         )}
 
         {/* ARフィルターオーバーレイ */}
-        <ArFilterOverlay videoRef={videoRef} isActive={remoteStream !== null} onEffectChange={handleEffectChange} />
+        <ArFilterOverlay videoRef={videoRef} isActive={remoteStream !== null} onEffectChange={handleEffectChange} externalEffect={phoneEffect} />
 
         {/* やじコメント */}
         <YajiComment wsRef={wsRef} />

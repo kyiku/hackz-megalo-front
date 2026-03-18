@@ -16,6 +16,7 @@ type PhoneArOverlayProps = {
   readonly videoRef: React.RefObject<HTMLVideoElement | null>
   readonly isActive: boolean
   readonly externalEffect?: ArEffect | null
+  readonly onEffectChange?: (effect: ArEffect | null) => void
 }
 
 export type PhoneArOverlayHandle = {
@@ -23,7 +24,7 @@ export type PhoneArOverlayHandle = {
 }
 
 export const PhoneArOverlay = forwardRef<PhoneArOverlayHandle, PhoneArOverlayProps>(
-  function PhoneArOverlay({ videoRef, isActive, externalEffect }, ref) {
+  function PhoneArOverlay({ videoRef, isActive, externalEffect, onEffectChange }, ref) {
     const canvasRef = useRef<HTMLCanvasElement>(null)
     const [selectedEffect, setSelectedEffect] = useState<ArEffect | null>(null)
     const selectedEffectRef = useRef<ArEffect | null>(selectedEffect)
@@ -39,7 +40,8 @@ export const PhoneArOverlay = forwardRef<PhoneArOverlayHandle, PhoneArOverlayPro
 
     useEffect(() => {
       selectedEffectRef.current = selectedEffect
-    }, [selectedEffect])
+      onEffectChange?.(selectedEffect)
+    }, [selectedEffect, onEffectChange])
 
     // PC側から同期されたエフェクトでローカルを上書き
     useEffect(() => {
