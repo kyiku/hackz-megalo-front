@@ -74,35 +74,31 @@ export function usePhoneSync() {
         ...(sessionId ? { sessionId } : {}),
       })
 
-      // When entering preview or doodle, send photo thumbnails to PC
-      // Use a short delay to ensure photos are populated in sessionStore
-      if (phase === 'preview' || phase === 'doodle') {
-        const sendPhotos = async (currentPhotos: readonly string[]) => {
-          if (currentPhotos.length === 0) return
-          try {
-            const thumbnails = await Promise.all(
-              currentPhotos.map((photo) => resizeToThumbnail(photo, 200)),
-            )
-            send('shooting_sync', {
-              roomId,
-              event: 'photo_sync',
-              photos: thumbnails,
-            })
-          } catch {
-            // Silently fail if thumbnail generation fails
+      // doodleフェーズに入ったら写真サムネイルをPCに送信
+      if (phase === 'doodle') {
+        const sendPhotos = async () => {
+          // photosが空の場合は最大3回リトライ
+          for (let attempt = 0; attempt < 3; attempt++) {
+            const currentPhotos = useSessionStore.getState().photos
+            if (currentPhotos.length > 0) {
+              try {
+                const thumbnails = await Promise.all(
+                  currentPhotos.map((photo) => resizeToThumbnail(photo, 200)),
+                )
+                send('shooting_sync', {
+                  roomId,
+                  event: 'photo_sync',
+                  photos: thumbnails,
+                })
+              } catch {
+                // サムネイル生成失敗は無視
+              }
+              return
+            }
+            await new Promise((r) => setTimeout(r, 500))
           }
         }
-
-        if (photos.length > 0) {
-          void sendPhotos(photos)
-        } else {
-          // photos may not be available yet; retry after a short delay
-          const timer = setTimeout(() => {
-            const latestPhotos = useSessionStore.getState().photos
-            void sendPhotos(latestPhotos)
-          }, 500)
-          return () => clearTimeout(timer)
-        }
+        void sendPhotos()
       }
     }
   }, [pathname, roomId, role, isConnected, send, photos])
