@@ -9,11 +9,15 @@ import { DoodleEditor } from '@/components/doodle/doodle-editor'
 import type { DoodleLayer } from '@/components/doodle/types'
 import { Button } from '@/components/ui/button'
 import { PageContainer } from '@/components/ui/page-container'
+import { useRoomStore } from '@/stores/room-store'
 import { useSessionStore } from '@/stores/session-store'
+import { useWsStore } from '@/stores/ws-store'
 
 export default function DoodlePage() {
   const router = useRouter()
   const { photos } = useSessionStore()
+  const { roomId } = useRoomStore()
+  const { send } = useWsStore()
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [photoLayers, setPhotoLayers] = useState<Record<number, readonly DoodleLayer[]>>({})
 
@@ -29,6 +33,20 @@ export default function DoodlePage() {
   const handleCancel = useCallback(() => {
     setEditingIndex(null)
   }, [])
+
+  // レイヤー変更時にPC側へ同期
+  const handleLayerChange = useCallback(
+    (layers: readonly DoodleLayer[]) => {
+      if (!roomId || editingIndex === null) return
+      send('shooting_sync', {
+        roomId,
+        event: 'doodle_sync',
+        photoIndex: editingIndex,
+        layers: JSON.stringify(layers),
+      })
+    },
+    [roomId, editingIndex, send],
+  )
 
   const handleDone = useCallback(() => {
     router.push('/processing/demo')
@@ -49,6 +67,7 @@ export default function DoodlePage() {
         photoSrc={photo}
         onSave={handleSave}
         onCancel={handleCancel}
+        onLayerChange={handleLayerChange}
         initialLayers={photoLayers[editingIndex] ?? []}
       />
     )

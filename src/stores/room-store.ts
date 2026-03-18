@@ -9,6 +9,7 @@ type RoomPhase =
   | 'filter-select'
   | 'shooting'
   | 'preview'
+  | 'doodle'
   | 'processing'
   | 'result'
   | 'complete'
