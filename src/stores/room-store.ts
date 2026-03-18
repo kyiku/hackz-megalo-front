@@ -31,7 +31,7 @@ type RoomActions = {
   readonly setPhoneConnected: (connected: boolean) => void
   readonly setSelectedFilter: (filter: string | null) => void
   readonly setSessionId: (sessionId: string | null) => void
-  readonly setPreviewPhotos: (photos: readonly string[]) => void
+  readonly setPreviewPhotos: (photos: readonly string[] | ((prev: readonly string[]) => readonly string[])) => void
   readonly leaveRoom: () => void
 }
 
@@ -84,7 +84,9 @@ export const useRoomStore = create<RoomState & RoomActions>()((set) => ({
 
   setSessionId: (sessionId) => set({ sessionId }),
 
-  setPreviewPhotos: (photos) => set({ previewPhotos: photos }),
+  setPreviewPhotos: (photos) => set((state) => ({
+    previewPhotos: typeof photos === 'function' ? photos(state.previewPhotos) : photos,
+  })),
 
   leaveRoom: () => set(initialState),
 }))
