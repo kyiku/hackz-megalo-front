@@ -13,6 +13,13 @@ type UseYajiFrameUploadOptions = {
   readonly isActive: boolean
 }
 
+/** canvas.toBlob を Promise でラップ */
+function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number): Promise<Blob | null> {
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), type, quality)
+  })
+}
+
 /** 撮影中に3秒おきにカメラフレームをS3にアップロードし、やじコメントを自動生成させる */
 export function useYajiFrameUpload({
   sessionId,
@@ -20,9 +27,9 @@ export function useYajiFrameUpload({
   isActive,
 }: UseYajiFrameUploadOptions): void {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const uploadingRef = useRef(false)
 
-  const captureFrame = useCallback((): Blob | null => {
+  const captureFrame = useCallback(async (): Promise<Blob | null> => {
     const video = videoRef.current
     if (!video || video.videoWidth === 0) return null
 
@@ -30,7 +37,6 @@ export function useYajiFrameUpload({
       canvasRef.current = document.createElement('canvas')
     }
     const canvas = canvasRef.current
-    // やじ分析用なので低解像度で十分
     canvas.width = 320
     canvas.height = Math.round(320 * (video.videoHeight / video.videoWidth))
 
@@ -39,62 +45,42 @@ export function useYajiFrameUpload({
 
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
 
-    let blob: Blob | null = null
-    canvas.toBlob(
-      (b) => { blob = b },
-      'image/jpeg',
-      FRAME_QUALITY,
-    )
-    // toBlob is async on some browsers, use synchronous fallback
-    if (!blob) {
-      const dataUrl = canvas.toDataURL('image/jpeg', FRAME_QUALITY)
-      const base64 = dataUrl.split(',')[1]
-      if (!base64) return null
-      const binary = atob(base64)
-      const bytes = new Uint8Array(binary.length)
-      for (let i = 0; i < binary.length; i++) {
-        bytes[i] = binary.charCodeAt(i)
-      }
-      blob = new Blob([bytes], { type: 'image/jpeg' })
-    }
-
-    return blob
+    return canvasToBlob(canvas, 'image/jpeg', FRAME_QUALITY)
   }, [videoRef])
 
   const uploadFrame = useCallback(async () => {
-    if (!sessionId) return
+    if (!sessionId || uploadingRef.current) return
+    uploadingRef.current = true
 
     try {
-      const frame = captureFrame()
+      const frame = await captureFrame()
       if (!frame) return
 
       const { uploadUrl } = await getYajiFrameUrl(sessionId)
       await uploadYajiFrame(uploadUrl, frame)
     } catch {
       // やじフレームのアップロード失敗は撮影に影響しないので無視
+    } finally {
+      uploadingRef.current = false
     }
   }, [sessionId, captureFrame])
 
   useEffect(() => {
-    if (!isActive || !sessionId) {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-        intervalRef.current = null
-      }
-      return
-    }
+    if (!isActive || !sessionId) return
 
-    // 最初のフレームを即座にアップロード
     void uploadFrame()
 
-    intervalRef.current = setInterval(() => {
+    const interval = setInterval(() => {
       void uploadFrame()
     }, FRAME_INTERVAL_MS)
 
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-        intervalRef.current = null
+      clearInterval(interval)
+      // canvas メモリ解放
+      if (canvasRef.current) {
+        canvasRef.current.width = 0
+        canvasRef.current.height = 0
+        canvasRef.current = null
       }
     }
   }, [isActive, sessionId, uploadFrame])

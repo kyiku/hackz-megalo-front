@@ -24,9 +24,13 @@ export async function uploadYajiFrame(
   uploadUrl: string,
   frameBlob: Blob,
 ): Promise<void> {
-  await fetch(uploadUrl, {
+  const response = await fetch(uploadUrl, {
     method: 'PUT',
     body: frameBlob,
     headers: { 'Content-Type': 'image/jpeg' },
   })
+
+  if (!response.ok) {
+    throw new Error(`Frame upload failed: HTTP ${response.status}`)
+  }
 }
