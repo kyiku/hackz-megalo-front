@@ -38,6 +38,8 @@ export type SessionResponse = {
   readonly filter: string
   readonly caption?: string
   readonly collageImageUrl?: string
+  readonly printImageUrl?: string
+  readonly downloadCode?: string
   readonly createdAt: string
 }
 
