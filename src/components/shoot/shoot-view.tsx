@@ -6,6 +6,7 @@ import { useCallback, useRef, useState } from 'react'
 import { StepIndicator } from '@/components/ui/step-indicator'
 import { useCamera } from '@/hooks/use-camera'
 import { useCountdown } from '@/hooks/use-countdown'
+import { useVoiceCommand } from '@/hooks/use-voice-command'
 import { useWebRtc } from '@/hooks/use-webrtc'
 import { useRoomStore } from '@/stores/room-store'
 import { useSessionStore } from '@/stores/session-store'
@@ -51,7 +52,6 @@ export function ShootView() {
     sendSync('shooting_start', { totalPhotos: TOTAL_PHOTOS })
 
     for (let i = photoCount; i < TOTAL_PHOTOS; i++) {
-      // カウントダウン開始をPC側に同期
       sendSync('countdown', { photoIndex: i, count: 3 })
 
       await startCountdown(3)
@@ -72,6 +72,12 @@ export function ShootView() {
     isShootingRef.current = false
     router.push('/preview')
   }, [photoCount, startCountdown, capture, addPhoto, router, sendSync])
+
+  // 音声コマンドで撮影開始（「撮って」「チーズ」等）
+  const { isSupported: voiceSupported } = useVoiceCommand({
+    isActive: isReady && !isRunning && photoCount < TOTAL_PHOTOS,
+    onTrigger: shootSequence,
+  })
 
   if (!filter) {
     router.replace('/filter')
@@ -128,6 +134,12 @@ export function ShootView() {
 
         {isRunning && (
           <p className="animate-pulse font-mono text-sm text-white/60">撮影中...</p>
+        )}
+
+        {voiceSupported && !isRunning && photoCount < TOTAL_PHOTOS && (
+          <p className="font-mono text-[10px] text-white/40">
+            「撮って」「チーズ」で撮影開始
+          </p>
         )}
       </div>
     </div>
