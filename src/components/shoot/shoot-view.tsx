@@ -1,7 +1,9 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+
+import type { ArEffect } from '@/lib/ar-effects'
 
 import type { PhoneArOverlayHandle } from './phone-ar-overlay'
 
@@ -33,6 +35,7 @@ export function ShootView() {
   const [flashTrigger, setFlashTrigger] = useState(0)
   const [isShooting, setIsShooting] = useState(false)
   const [yajiSessionId, setYajiSessionId] = useState<string | null>(null)
+  const [externalEffect, setExternalEffect] = useState<ArEffect | null>(null)
   const isShootingRef = useRef(false)
 
   const photoCount = photos.length
@@ -44,6 +47,29 @@ export function ShootView() {
     role: 'phone',
     localStream: stream,
   })
+
+  // PCからのARエフェクト同期を受信
+  useEffect(() => {
+    if (!ws) return
+
+    const handler = (event: MessageEvent) => {
+      try {
+        const msg = JSON.parse(event.data as string) as {
+          type: string
+          data: Record<string, unknown>
+        }
+        if (msg.type === 'shooting_sync' && msg.data.event === 'ar_sync') {
+          const effect = msg.data.effect as ArEffect | null
+          setExternalEffect(effect ?? null)
+        }
+      } catch {
+        // パースエラーは無視
+      }
+    }
+
+    ws.addEventListener('message', handler)
+    return () => ws.removeEventListener('message', handler)
+  }, [ws])
 
   // やじフレーム自動アップロード（撮影中のみ）
   useYajiFrameUpload({
@@ -153,7 +179,7 @@ export function ShootView() {
           muted
           style={{ transform: 'scaleX(-1)' }}
         />
-        <PhoneArOverlay ref={arOverlayRef} videoRef={videoRef} isActive={isReady} />
+        <PhoneArOverlay ref={arOverlayRef} videoRef={videoRef} isActive={isReady} externalEffect={externalEffect} />
         <CountdownOverlay count={count} />
         <FlashOverlay trigger={flashTrigger} />
       </div>

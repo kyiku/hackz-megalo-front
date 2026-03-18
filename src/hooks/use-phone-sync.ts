@@ -75,11 +75,13 @@ export function usePhoneSync() {
       })
 
       // When entering preview or doodle, send photo thumbnails to PC
-      if ((phase === 'preview' || phase === 'doodle') && photos.length > 0) {
-        const sendPhotos = async () => {
+      // Use a short delay to ensure photos are populated in sessionStore
+      if (phase === 'preview' || phase === 'doodle') {
+        const sendPhotos = async (currentPhotos: readonly string[]) => {
+          if (currentPhotos.length === 0) return
           try {
             const thumbnails = await Promise.all(
-              photos.map((photo) => resizeToThumbnail(photo, 200)),
+              currentPhotos.map((photo) => resizeToThumbnail(photo, 200)),
             )
             send('shooting_sync', {
               roomId,
@@ -90,7 +92,17 @@ export function usePhoneSync() {
             // Silently fail if thumbnail generation fails
           }
         }
-        void sendPhotos()
+
+        if (photos.length > 0) {
+          void sendPhotos(photos)
+        } else {
+          // photos may not be available yet; retry after a short delay
+          const timer = setTimeout(() => {
+            const latestPhotos = useSessionStore.getState().photos
+            void sendPhotos(latestPhotos)
+          }, 500)
+          return () => clearTimeout(timer)
+        }
       }
     }
   }, [pathname, roomId, role, isConnected, send, photos])
