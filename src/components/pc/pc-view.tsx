@@ -134,7 +134,7 @@ export function PcView() {
       }
       if (data.event === 'shooting_complete') {
         setCountdownValue(null)
-        setPhase('preview')
+        setPhase('doodle')
         audio.stopBgm()
         audio.playFanfare()
       }
