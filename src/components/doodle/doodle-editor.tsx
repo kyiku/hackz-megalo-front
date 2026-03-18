@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { DoodleCanvas } from './doodle-canvas'
 import { TextInputModal } from './text-input-modal'
@@ -13,10 +13,20 @@ type DoodleEditorProps = {
   readonly onCancel: () => void
   readonly onLayerChange?: (layers: readonly DoodleLayer[]) => void
   readonly initialLayers?: readonly DoodleLayer[]
+  readonly externalLayers?: readonly DoodleLayer[]
 }
 
-export function DoodleEditor({ photoSrc, onSave, onCancel, onLayerChange, initialLayers = [] }: DoodleEditorProps) {
+export function DoodleEditor({ photoSrc, onSave, onCancel, onLayerChange, initialLayers = [], externalLayers }: DoodleEditorProps) {
   const [layers, setLayers] = useState<readonly DoodleLayer[]>(initialLayers)
+  const isLocalChangeRef = useRef(false)
+
+  // 外部（相手側）からのレイヤー変更を反映
+  useEffect(() => {
+    if (externalLayers !== undefined && !isLocalChangeRef.current) {
+      setLayers(externalLayers)
+    }
+    isLocalChangeRef.current = false
+  }, [externalLayers])
   const [tool, setTool] = useState<Tool>('pen')
   const [penColor, setPenColor] = useState<PenColor>('#e05280')
   const [penSize, setPenSize] = useState<PenSize>(4)
@@ -48,6 +58,7 @@ export function DoodleEditor({ photoSrc, onSave, onCancel, onLayerChange, initia
 
   const updateLayers = useCallback(
     (updater: (prev: readonly DoodleLayer[]) => readonly DoodleLayer[]) => {
+      isLocalChangeRef.current = true
       setLayers((prev) => {
         const next = updater(prev)
         onLayerChange?.(next)

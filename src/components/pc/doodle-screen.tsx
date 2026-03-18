@@ -120,6 +120,7 @@ export function DoodleScreen() {
           onCancel={handleCancel}
           onLayerChange={handleLayerChange}
           initialLayers={photoLayers[currentPhotoIndex] ?? []}
+          externalLayers={photoLayers[currentPhotoIndex]}
         />
       </div>
     </div>

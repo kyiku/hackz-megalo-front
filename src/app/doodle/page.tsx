@@ -66,6 +66,17 @@ export default function DoodlePage() {
     setEditingIndex(null)
   }, [])
 
+  // 編集中の写真インデックスをPCに通知
+  useEffect(() => {
+    if (editingIndex === null || !roomId) return
+    send('shooting_sync', {
+      roomId,
+      event: 'doodle_sync',
+      photoIndex: editingIndex,
+      layers: JSON.stringify(photoLayers[editingIndex] ?? []),
+    })
+  }, [editingIndex, roomId, send, photoLayers])
+
   // レイヤー変更時にPC側へ同期
   const handleLayerChange = useCallback(
     (layers: readonly DoodleLayer[]) => {
@@ -120,6 +131,7 @@ export default function DoodlePage() {
         onCancel={handleCancel}
         onLayerChange={handleLayerChange}
         initialLayers={photoLayers[editingIndex] ?? []}
+        externalLayers={photoLayers[editingIndex]}
       />
     )
   }
