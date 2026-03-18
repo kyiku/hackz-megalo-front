@@ -1,4 +1,4 @@
-export type Tool = 'pen' | 'stamp' | 'text'
+export type Tool = 'pen' | 'stamp' | 'text' | 'move'
 
 export type PenColor = '#1a1a1a' | '#e05280' | '#ffffff' | '#d4a520' | '#2aaa6a' | '#93c5fd'
 export type PenSize = 2 | 4 | 8 | 14
@@ -13,8 +13,8 @@ export type Stamp = {
 
 export type DoodleLayer =
   | { readonly type: 'path'; readonly points: readonly { x: number; y: number }[]; readonly color: string; readonly size: number }
-  | { readonly type: 'stamp'; readonly stampId: StampId; readonly x: number; readonly y: number; readonly scale: number }
-  | { readonly type: 'text'; readonly content: string; readonly x: number; readonly y: number; readonly color: string; readonly fontSize: number }
+  | { readonly type: 'stamp'; readonly stampId: StampId; readonly x: number; readonly y: number; readonly scale: number; readonly rotation: number }
+  | { readonly type: 'text'; readonly content: string; readonly x: number; readonly y: number; readonly color: string; readonly fontSize: number; readonly rotation: number }
 
 export const PEN_COLORS: readonly PenColor[] = [
   '#1a1a1a',
@@ -35,3 +35,5 @@ export const STAMPS: readonly Stamp[] = [
   { id: 'flower', label: '花', svg: 'M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm0-18C9.8 4 8 5.8 8 8c0 2.5 2 4.5 3 7h2c1-2.5 3-4.5 3-7 0-2.2-1.8-4-4-4z' },
   { id: 'music', label: '音符', svg: 'M12 3v10.55c-.59-.34-1.27-.55-2-.55C7.79 13 6 14.79 6 17s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z' },
 ]
+
+export const STAMP_SCALES = [1, 1.5, 2, 3, 4] as const
