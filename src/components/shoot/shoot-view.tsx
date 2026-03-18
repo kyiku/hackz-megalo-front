@@ -147,7 +147,7 @@ export function ShootView() {
     setIsShooting(false)
     sendSync('shooting_complete')
     isShootingRef.current = false
-    router.push('/preview')
+    router.push('/doodle')
   }, [photoCount, startCountdown, capture, captureWithOverlay, addPhoto, router, sendSync, filter, setSessionId, startSession])
 
   // 音声コマンドで撮影開始（「撮って」「チーズ」等）
