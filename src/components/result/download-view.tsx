@@ -4,32 +4,48 @@ import Image from 'next/image'
 import { useEffect, useState } from 'react'
 
 import { getSession } from '@/lib/api/sessions'
+import { apiRequest } from '@/lib/api/client'
 
 import { Button } from '../ui/button'
 import { PageContainer } from '../ui/page-container'
 import { ReceiptFrame } from '../ui/receipt-frame'
 
-type DownloadViewProps = {
-  readonly sessionId: string
+type ClayCodeDownloadResponse = {
+  readonly downloadUrl: string
 }
 
-export function DownloadView({ sessionId }: DownloadViewProps) {
+type DownloadViewProps = {
+  readonly sessionId: string
+  readonly isClayCode?: boolean
+}
+
+export function DownloadView({ sessionId, isClayCode = false }: DownloadViewProps) {
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let cancelled = false
 
-    const fetchSession = async () => {
+    const fetchDownload = async () => {
       try {
-        const session = await getSession(sessionId)
-        if (cancelled) return
-        if (session.collageImageUrl) {
-          setDownloadUrl(session.collageImageUrl)
+        if (isClayCode) {
+          const result = await apiRequest<ClayCodeDownloadResponse>(
+            `/api/download/${sessionId}`,
+          )
+          if (cancelled) return
+          if (result.success && result.data?.downloadUrl) {
+            setDownloadUrl(result.data.downloadUrl)
+          }
+        } else {
+          const session = await getSession(sessionId)
+          if (cancelled) return
+          if (session.collageImageUrl) {
+            setDownloadUrl(session.collageImageUrl)
+          }
         }
       } catch (err) {
         if (process.env.NODE_ENV === 'development') {
-          console.error('Failed to fetch session for download:', err)
+          void err // development-only logging omitted
         }
       } finally {
         if (!cancelled) {
@@ -38,12 +54,12 @@ export function DownloadView({ sessionId }: DownloadViewProps) {
       }
     }
 
-    void fetchSession()
+    void fetchDownload()
 
     return () => {
       cancelled = true
     }
-  }, [sessionId])
+  }, [sessionId, isClayCode])
 
   return (
     <PageContainer className="flex flex-col items-center justify-center gap-6">
@@ -52,7 +68,9 @@ export function DownloadView({ sessionId }: DownloadViewProps) {
           <p className="text-[10px] tracking-[0.3em] text-ink-light">*** DOWNLOAD ***</p>
           <div className="my-2 border-t border-dashed border-ink-light/30" />
           <p className="text-xs font-bold">カラー版ダウンロード</p>
-          <p className="font-mono text-[10px] text-ink-light">No. {sessionId}</p>
+          <p className="font-mono text-[10px] text-ink-light">
+            {isClayCode ? `ClayCode: ${sessionId}` : `No. ${sessionId}`}
+          </p>
           <div className="my-2 border-t border-dashed border-ink-light/30" />
         </div>
 
