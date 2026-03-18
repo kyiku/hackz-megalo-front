@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 // AppSync API Key はクライアント公開前提の読み取り専用キー
 // WAF + API Keyスコープで保護（ハッカソン用途）
@@ -103,16 +103,6 @@ export function useStats(): {
   const [error, setError] = useState<string | null>(null)
   const visibleRef = useRef(true)
 
-  const refresh = useCallback(async () => {
-    // バックグラウンドタブではポーリングをスキップ
-    if (!visibleRef.current) return
-
-    const result = await fetchStats()
-    setStats(result.stats)
-    setError(result.error)
-    setIsLoading(false)
-  }, [])
-
   // Page Visibility API でバックグラウンドタブのポーリングを抑制
   useEffect(() => {
     const handler = () => {
@@ -123,14 +113,28 @@ export function useStats(): {
   }, [])
 
   useEffect(() => {
-    void refresh()
+    let cancelled = false
+
+    const poll = async () => {
+      if (!visibleRef.current) return
+      const result = await fetchStats()
+      if (cancelled) return
+      setStats(result.stats)
+      setError(result.error)
+      setIsLoading(false)
+    }
+
+    void poll()
 
     const interval = setInterval(() => {
-      void refresh()
+      void poll()
     }, POLL_INTERVAL_MS)
 
-    return () => clearInterval(interval)
-  }, [refresh])
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [])
 
   return { stats, isLoading, error }
 }

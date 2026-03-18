@@ -141,7 +141,7 @@ export function ProcessingView({ sessionId: routeSessionId }: ProcessingViewProp
       wsRef.current?.close()
       wsRef.current = null
     }
-  }, [routeSessionId, photos, filter, setProcessingStep, setResult, router, handleWsEvent])
+  }, [routeSessionId, photos, filter, setProcessingStep, setResult, router, handleWsEvent, existingSessionId, existingUploadUrls])
 
   if (error) {
     return (
