@@ -2,16 +2,25 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+type UseCountdownOptions = {
+  readonly onTick?: (value: number) => void
+}
+
 type UseCountdownReturn = {
   readonly count: number | null
   readonly isRunning: boolean
   readonly start: (from?: number) => Promise<void>
 }
 
-export function useCountdown(): UseCountdownReturn {
+export function useCountdown(options?: UseCountdownOptions): UseCountdownReturn {
   const [count, setCount] = useState<number | null>(null)
   const [isRunning, setIsRunning] = useState(false)
   const resolveRef = useRef<(() => void) | null>(null)
+  const onTickRef = useRef(options?.onTick)
+
+  useEffect(() => {
+    onTickRef.current = options?.onTick
+  }, [options?.onTick])
 
   useEffect(() => {
     if (!isRunning || count === null || count <= 0) return
@@ -25,6 +34,7 @@ export function useCountdown(): UseCountdownReturn {
         resolveRef.current = null
       } else {
         setCount(next)
+        onTickRef.current?.(next)
       }
     }, 1000)
 

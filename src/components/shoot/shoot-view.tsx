@@ -19,7 +19,6 @@ const TOTAL_PHOTOS = 4
 export function ShootView() {
   const router = useRouter()
   const { videoRef, isReady, error, capture, stream } = useCamera()
-  const { count, isRunning, start: startCountdown } = useCountdown()
   const { filter, addPhoto, photos } = useSessionStore()
   const { roomId } = useRoomStore()
   const { ws, send } = useWsStore()
@@ -43,6 +42,13 @@ export function ShootView() {
     },
     [roomId, send],
   )
+
+  const onCountdownTick = useCallback(
+    (value: number) => sendSync('countdown', { count: value }),
+    [sendSync],
+  )
+
+  const { count, isRunning, start: startCountdown } = useCountdown({ onTick: onCountdownTick })
 
   const shootSequence = useCallback(async () => {
     if (isShootingRef.current) return
