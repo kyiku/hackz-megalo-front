@@ -21,6 +21,7 @@ export function PcView() {
   const wsRef = useRef<WebSocket | null>(null)
   const [countdownValue, setCountdownValue] = useState<number | null>(null)
   const [lastShutterIndex, setLastShutterIndex] = useState<number | null>(null)
+  const [pcPhotoCount, setPcPhotoCount] = useState(0)
   const initializedRef = useRef(false)
 
   // ルーム作成 + WebSocket接続（1回だけ実行）
@@ -98,16 +99,20 @@ export function PcView() {
 
   // 撮影イベント受信
   const handleShootingEvent = useCallback(
-    (data: { event: string; count?: number; photoIndex?: number }) => {
+    (data: { event: string; count?: number; photoIndex?: number; photoCount?: number }) => {
       if (data.event === 'countdown' && data.count !== undefined) {
         setCountdownValue(data.count)
       }
       if (data.event === 'shutter') {
         setCountdownValue(null)
         setLastShutterIndex(data.photoIndex ?? null)
+        if (data.photoCount !== undefined) {
+          setPcPhotoCount(data.photoCount)
+        }
       }
       if (data.event === 'shooting_start') {
         setPhase('shooting')
+        setPcPhotoCount(0)
       }
       if (data.event === 'shooting_complete') {
         setCountdownValue(null)
@@ -138,6 +143,7 @@ export function PcView() {
           countdownValue={countdownValue}
           lastShutterIndex={lastShutterIndex}
           iceState={iceState}
+          photoCount={pcPhotoCount}
         />
       )
     case 'preview':

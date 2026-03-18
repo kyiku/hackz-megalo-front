@@ -51,6 +51,7 @@ export function ShootView() {
     sendSync('shooting_start', { totalPhotos: TOTAL_PHOTOS })
 
     for (let i = photoCount; i < TOTAL_PHOTOS; i++) {
+      // カウントダウン開始をPC側に同期
       sendSync('countdown', { photoIndex: i, count: 3 })
 
       await startCountdown(3)
@@ -59,11 +60,11 @@ export function ShootView() {
       if (dataUrl) {
         addPhoto(dataUrl)
         setFlashTrigger((prev) => prev + 1)
-        sendSync('shutter', { photoIndex: i })
+        sendSync('shutter', { photoIndex: i, photoCount: i + 1 })
       }
 
       if (i < TOTAL_PHOTOS - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 800))
+        await new Promise((resolve) => setTimeout(resolve, 3000))
       }
     }
 
