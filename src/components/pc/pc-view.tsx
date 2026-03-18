@@ -171,6 +171,7 @@ export function PcView() {
           lastShutterIndex={lastShutterIndex}
           iceState={iceState}
           photoCount={pcPhotoCount}
+          roomId={roomId}
         />
       )
     case 'preview':

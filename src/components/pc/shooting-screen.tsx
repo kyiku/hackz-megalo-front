@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 
 import { ArFilterOverlay } from './ar-filter-overlay'
 import { YajiComment } from './yaji-comment'
@@ -12,6 +12,7 @@ type ShootingScreenProps = {
   readonly lastShutterIndex: number | null
   readonly iceState: string | null
   readonly photoCount: number
+  readonly roomId: string | null
 }
 
 export function ShootingScreen({
@@ -21,8 +22,23 @@ export function ShootingScreen({
   lastShutterIndex,
   iceState,
   photoCount,
+  roomId,
 }: ShootingScreenProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
+
+  const handleEffectChange = useCallback(
+    (effect: string | null) => {
+      const currentWs = wsRef.current
+      if (!currentWs || currentWs.readyState !== WebSocket.OPEN || !roomId) return
+      currentWs.send(
+        JSON.stringify({
+          action: 'shooting_sync',
+          data: { roomId, event: 'ar_sync', effect },
+        }),
+      )
+    },
+    [wsRef, roomId],
+  )
 
   useEffect(() => {
     const video = videoRef.current
@@ -84,7 +100,7 @@ export function ShootingScreen({
         )}
 
         {/* ARフィルターオーバーレイ */}
-        <ArFilterOverlay videoRef={videoRef} isActive={remoteStream !== null} />
+        <ArFilterOverlay videoRef={videoRef} isActive={remoteStream !== null} onEffectChange={handleEffectChange} />
 
         {/* やじコメント */}
         <YajiComment wsRef={wsRef} />
