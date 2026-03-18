@@ -10,7 +10,7 @@ const PATH_TO_PHASE: Record<string, string> = {
   '/filter': 'filter-select',
   '/shoot': 'shooting',
   '/preview': 'preview',
-  '/doodle': 'preview',
+  '/doodle': 'doodle',
   '/processing': 'processing',
   '/result': 'result',
 }
