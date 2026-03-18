@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { ProcessingSteps } from '@/components/processing/processing-steps'
 import { ReceiptFrame } from '@/components/ui/receipt-frame'
+import type { WsEvent } from '@/lib/api/types'
 import { useRoomStore } from '@/stores/room-store'
 import { useWsStore } from '@/stores/ws-store'
 
@@ -19,13 +20,12 @@ export function ProcessingScreen() {
   const { sessionId, setPhase } = useRoomStore()
   const { ws } = useWsStore()
   const [currentStep, setCurrentStep] = useState('uploading')
+  const [error, setError] = useState<string | null>(null)
   const subscribedRef = useRef<string | null>(null)
 
-  // WebSocketでstatusUpdate / completedを受信
   useEffect(() => {
     if (!ws || !sessionId) return
 
-    // 同一セッションへの重複subscribeを防止
     if (subscribedRef.current !== sessionId) {
       ws.send(JSON.stringify({
         action: 'subscribe',
@@ -36,10 +36,10 @@ export function ProcessingScreen() {
 
     const handler = (event: MessageEvent) => {
       try {
-        const msg = JSON.parse(event.data as string) as {
-          type: string
-          data: { step?: string; sessionId?: string }
-        }
+        const msg = JSON.parse(event.data as string) as WsEvent
+
+        // sessionId が一致するイベントのみ処理
+        if ('data' in msg && 'sessionId' in msg.data && msg.data.sessionId !== sessionId) return
 
         if (msg.type === 'statusUpdate' && msg.data.step) {
           const mapped = STEP_MAP[msg.data.step] ?? msg.data.step
@@ -47,8 +47,11 @@ export function ProcessingScreen() {
         }
 
         if (msg.type === 'completed') {
-          setCurrentStep('complete')
           setPhase('result')
+        }
+
+        if (msg.type === 'error') {
+          setError(msg.data.message)
         }
       } catch (err) {
         if (process.env.NODE_ENV === 'development') {
@@ -63,12 +66,21 @@ export function ProcessingScreen() {
     }
   }, [ws, sessionId, setPhase])
 
-  // ws再接続時にsubscribeをリセット
   useEffect(() => {
     if (!ws) {
       subscribedRef.current = null
     }
   }, [ws])
+
+  if (error) {
+    return (
+      <div className="flex min-h-dvh flex-col items-center justify-center px-8">
+        <div className="w-full max-w-sm text-center">
+          <p className="receipt-text text-sm font-bold text-red">{error}</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center px-8">
