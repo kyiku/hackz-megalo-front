@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import Image from 'next/image'
 
@@ -22,10 +22,36 @@ export default function DoodlePage() {
   const router = useRouter()
   const { photos, replacePhoto, sessionId } = useSessionStore()
   const { roomId, sessionId: roomSessionId } = useRoomStore()
-  const { send } = useWsStore()
+  const { ws, send } = useWsStore()
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [photoLayers, setPhotoLayers] = useState<Record<number, readonly DoodleLayer[]>>({})
   const [isCompositing, setIsCompositing] = useState(false)
+
+  // PC側からのdoodle_sync受信（共同編集）
+  useEffect(() => {
+    if (!ws) return
+
+    const handler = (event: MessageEvent) => {
+      try {
+        const msg = JSON.parse(event.data as string) as {
+          type: string
+          data: { event?: string; photoIndex?: number; layers?: string }
+        }
+        if (msg.type === 'shooting_sync' && msg.data.event === 'doodle_sync') {
+          const idx = msg.data.photoIndex ?? 0
+          if (msg.data.layers) {
+            const parsed = JSON.parse(msg.data.layers) as DoodleLayer[]
+            setPhotoLayers((prev) => ({ ...prev, [idx]: parsed }))
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    ws.addEventListener('message', handler)
+    return () => ws.removeEventListener('message', handler)
+  }, [ws])
 
   const handleSave = useCallback(
     (layers: readonly DoodleLayer[]) => {
