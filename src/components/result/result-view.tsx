@@ -60,25 +60,9 @@ export function ResultView({ sessionId }: ResultViewProps) {
 
   return (
     <PageContainer className="flex flex-col items-center gap-6">
-      <header className="flex w-full items-center justify-between gap-4">
-        <div>
-          <p className="receipt-text text-[10px] tracking-[0.3em] text-ink-light">COMPLETE</p>
-          <h1 className="mt-1 text-xl font-bold tracking-tight">できた！</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <p className="receipt-text text-right text-[9px] leading-relaxed text-ink-light">
-            カラー版を
-            <br />
-            DLできます
-          </p>
-          <Link href="/scan">
-            <div className="receipt-text flex flex-col items-center gap-0.5 rounded border border-dashed border-ink-light/50 px-3 py-2 text-center text-ink-light transition-colors hover:border-ink hover:text-ink">
-              <span className="text-base leading-none">⬡</span>
-              <span className="text-[9px] tracking-[0.05em]">CLAYCODE</span>
-              <span className="text-[9px] tracking-[0.05em]">スキャン</span>
-            </div>
-          </Link>
-        </div>
+      <header>
+        <p className="receipt-text text-[10px] tracking-[0.3em] text-ink-light">COMPLETE</p>
+        <h1 className="mt-1 text-xl font-bold tracking-tight">できた！</h1>
       </header>
 
       <ReceiptFrame className="w-full overflow-hidden px-5 py-5">
@@ -138,7 +122,7 @@ export function ResultView({ sessionId }: ResultViewProps) {
           <p className="font-mono text-[10px] text-ink-light">
             {downloadCode
               ? 'ClayCodeまたはQRからカラー版DL可'
-              : 'ClayCodeからカラー版DL可'}
+              : 'レシートのQRからカラー版DL可'}
           </p>
         </div>
       </ReceiptFrame>
