@@ -7,6 +7,7 @@ import { createSession, startProcessing, uploadPhoto } from '@/lib/api/sessions'
 import type { WsEvent } from '@/lib/api/types'
 import { toApiFilterName } from '@/lib/filters'
 import { dataUrlToBlob } from '@/lib/utils'
+import { useClaycodeGenerator } from '@/hooks/use-claycode-generator'
 import { useSessionStore } from '@/stores/session-store'
 
 import { PageContainer } from '../ui/page-container'
@@ -35,6 +36,7 @@ export function ProcessingView({ sessionId: routeSessionId }: ProcessingViewProp
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const startedRef = useRef(false)
+  const { generate: generateClaycode } = useClaycodeGenerator()
 
   const handleWsEvent = useCallback(
     (event: WsEvent) => {
@@ -114,7 +116,8 @@ export function ProcessingView({ sessionId: routeSessionId }: ProcessingViewProp
           })
         }
 
-        await Promise.all(
+        // 写真アップロード + ClayCode生成を並行実行
+        const photoUploadPromise = Promise.all(
           session.uploadUrls.map((upload, i) => {
             const photo = photos[i]
             if (!photo) return Promise.resolve()
@@ -122,6 +125,21 @@ export function ProcessingView({ sessionId: routeSessionId }: ProcessingViewProp
             return uploadPhoto(upload.url, blob, abortController.signal)
           }),
         )
+
+        // ClayCode画像生成 + S3アップロード (downloadCodeがあれば)
+        const sessionAny = session as Record<string, unknown>
+        const downloadCode = sessionAny.downloadCode as string | undefined
+        const claycodeUploadUrl = sessionAny.claycodeUploadUrl as string | undefined
+        const claycodePromise = (downloadCode && claycodeUploadUrl)
+          ? generateClaycode(downloadCode).then(async (dataUrl) => {
+              const blob = dataUrlToBlob(dataUrl)
+              await fetch(claycodeUploadUrl, { method: 'PUT', body: blob, headers: { 'Content-Type': 'image/png' } })
+            }).catch(() => {
+              // ClayCode生成失敗はスキップ
+            })
+          : Promise.resolve()
+
+        await Promise.all([photoUploadPromise, claycodePromise])
 
         if (abortController.signal.aborted) return
 
