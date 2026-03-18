@@ -21,6 +21,7 @@ type RoomState = {
   readonly phoneConnected: boolean
   readonly selectedFilter: string | null
   readonly sessionId: string | null
+  readonly previewPhotos: readonly string[]
 }
 
 type RoomActions = {
@@ -30,6 +31,7 @@ type RoomActions = {
   readonly setPhoneConnected: (connected: boolean) => void
   readonly setSelectedFilter: (filter: string | null) => void
   readonly setSessionId: (sessionId: string | null) => void
+  readonly setPreviewPhotos: (photos: readonly string[]) => void
   readonly leaveRoom: () => void
 }
 
@@ -40,6 +42,7 @@ const initialState: RoomState = {
   phoneConnected: false,
   selectedFilter: null,
   sessionId: null,
+  previewPhotos: [],
 }
 
 function generateRoomId(): string {
@@ -80,6 +83,8 @@ export const useRoomStore = create<RoomState & RoomActions>()((set) => ({
   setSelectedFilter: (filter) => set({ selectedFilter: filter }),
 
   setSessionId: (sessionId) => set({ sessionId }),
+
+  setPreviewPhotos: (photos) => set({ previewPhotos: photos }),
 
   leaveRoom: () => set(initialState),
 }))

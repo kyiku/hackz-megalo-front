@@ -9,17 +9,19 @@ import { DoodleEditor } from '@/components/doodle/doodle-editor'
 import type { DoodleLayer } from '@/components/doodle/types'
 import { Button } from '@/components/ui/button'
 import { PageContainer } from '@/components/ui/page-container'
+import { compositePhotoWithLayers } from '@/lib/composite-doodle'
 import { useRoomStore } from '@/stores/room-store'
 import { useSessionStore } from '@/stores/session-store'
 import { useWsStore } from '@/stores/ws-store'
 
 export default function DoodlePage() {
   const router = useRouter()
-  const { photos } = useSessionStore()
+  const { photos, replacePhoto } = useSessionStore()
   const { roomId } = useRoomStore()
   const { send } = useWsStore()
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [photoLayers, setPhotoLayers] = useState<Record<number, readonly DoodleLayer[]>>({})
+  const [isCompositing, setIsCompositing] = useState(false)
 
   const handleSave = useCallback(
     (layers: readonly DoodleLayer[]) => {
@@ -48,9 +50,27 @@ export default function DoodlePage() {
     [roomId, editingIndex, send],
   )
 
-  const handleDone = useCallback(() => {
+  const handleDone = useCallback(async () => {
+    setIsCompositing(true)
+    try {
+      // Composite all doodle layers onto their respective photos
+      const compositePromises = Object.entries(photoLayers).map(
+        async ([indexStr, layers]) => {
+          const index = parseInt(indexStr, 10)
+          const photo = photos[index]
+          if (!photo || layers.length === 0) return
+
+          const composited = await compositePhotoWithLayers(photo, layers)
+          replacePhoto(index, composited)
+        },
+      )
+
+      await Promise.all(compositePromises)
+    } catch {
+      // If compositing fails, proceed without compositing
+    }
     router.push('/processing/demo')
-  }, [router])
+  }, [photoLayers, photos, replacePhoto, router])
 
   if (photos.length === 0) {
     router.replace('/filter')
@@ -118,8 +138,8 @@ export default function DoodlePage() {
       </div>
 
       <div className="flex flex-col gap-3">
-        <Button size="lg" className="w-full" onClick={handleDone}>
-          OK! 印刷する
+        <Button size="lg" className="w-full" onClick={handleDone} disabled={isCompositing}>
+          {isCompositing ? '処理中...' : 'OK! 印刷する'}
         </Button>
 
         <button
