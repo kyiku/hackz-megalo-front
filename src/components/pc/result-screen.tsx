@@ -13,6 +13,7 @@ export function ResultScreen() {
   const { sessionId, setPhase } = useRoomStore()
   const { isConnected: printerConnected, isPrinting, printImage, lastError } = usePrinterStore()
   const [collageUrl, setCollageUrl] = useState<string | null>(null)
+  const [printUrl, setPrintUrl] = useState<string | null>(null)
   const [caption, setCaption] = useState<string | null>(null)
   const [loading, setLoading] = useState(!!sessionId)
   const [printed, setPrinted] = useState(false)
@@ -30,6 +31,7 @@ export function ResultScreen() {
 
         if (session.status === 'completed' && session.collageImageUrl) {
           setCollageUrl(session.collageImageUrl)
+          if (session.printImageUrl) setPrintUrl(session.printImageUrl)
           if (session.caption) setCaption(session.caption)
           setLoading(false)
           return
@@ -57,27 +59,28 @@ export function ResultScreen() {
     return () => { cancelled = true }
   }, [sessionId])
 
-  // プリンター接続済み＋コラージュ取得完了で自動印刷
+  // プリンター接続済み＋レシート画像取得完了で自動印刷
+  const imageForPrint = printUrl ?? collageUrl
   useEffect(() => {
-    if (!printerConnected || !collageUrl || printed || isPrinting) return
+    if (!printerConnected || !imageForPrint || printed || isPrinting) return
 
     const timer = setTimeout(() => {
       setPrinted(true)
-      void printImage(collageUrl)
+      void printImage(imageForPrint)
     }, 500)
 
     return () => clearTimeout(timer)
-  }, [printerConnected, collageUrl, printed, isPrinting, printImage])
+  }, [printerConnected, imageForPrint, printed, isPrinting, printImage])
 
   const handlePrint = useCallback(() => {
-    if (collageUrl) {
+    if (imageForPrint) {
       if (printerConnected) {
-        void printImage(collageUrl)
+        void printImage(imageForPrint)
       } else {
         window.print()
       }
     }
-  }, [collageUrl, printerConnected, printImage])
+  }, [imageForPrint, printerConnected, printImage])
 
   const handleComplete = useCallback(() => {
     setPhase('complete')
