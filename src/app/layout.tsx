@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 
 import { PhoneSyncProvider } from '@/components/phone-sync-provider'
-import { delaGothicOne, ibmPlexMono, zenMaruGothic } from '@/lib/fonts'
+import { delaGothicOne, spaceMono } from '@/lib/fonts'
 
 import './globals.css'
 
@@ -26,7 +26,7 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body
-        className={`${zenMaruGothic.variable} ${ibmPlexMono.variable} ${delaGothicOne.variable} antialiased`}
+        className={`${spaceMono.variable} ${delaGothicOne.variable} antialiased`}
       >
         <PhoneSyncProvider>{children}</PhoneSyncProvider>
       </body>
