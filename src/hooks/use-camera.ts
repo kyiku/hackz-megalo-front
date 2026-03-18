@@ -112,9 +112,12 @@ export function useCamera(): UseCameraReturn {
       ctx.drawImage(video, 0, 0)
       ctx.setTransform(1, 0, 0, 1, 0, 0)
 
-      // AR オーバーレイを合成（オーバーレイキャンバスがあれば）
+      // AR オーバーレイを合成（ミラー反転して描画 — ARはミラー前座標で描画されているため）
       if (overlayCanvas && overlayCanvas.width > 0 && overlayCanvas.height > 0) {
+        ctx.translate(canvas.width, 0)
+        ctx.scale(-1, 1)
         ctx.drawImage(overlayCanvas, 0, 0, canvas.width, canvas.height)
+        ctx.setTransform(1, 0, 0, 1, 0, 0)
       }
 
       return canvas.toDataURL('image/jpeg', 0.85)
