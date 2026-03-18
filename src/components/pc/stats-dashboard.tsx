@@ -14,7 +14,7 @@ const FILTER_LABELS: Record<string, string> = {
 }
 
 export function StatsDashboard() {
-  const { stats, isLoading } = useStats()
+  const { stats, isLoading, error } = useStats()
 
   if (isLoading) {
     return (
@@ -29,6 +29,10 @@ export function StatsDashboard() {
       <div className="border-b border-dashed border-ink-light/30 pb-1 text-center text-[10px] tracking-[0.2em] text-ink-light">
         TODAY&apos;S STATS
       </div>
+
+      {error && (
+        <p className="text-center text-[10px] text-red">{error}</p>
+      )}
 
       <div className="flex justify-between text-sm">
         <span className="text-ink-light">本日の撮影数</span>
