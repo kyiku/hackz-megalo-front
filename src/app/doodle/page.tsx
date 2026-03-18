@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 import Image from 'next/image'
 
+import { DoodleCanvas } from '@/components/doodle/doodle-canvas'
 import { DoodleEditor } from '@/components/doodle/doodle-editor'
 import type { DoodleLayer } from '@/components/doodle/types'
 import { Button } from '@/components/ui/button'
@@ -152,13 +153,17 @@ export default function DoodlePage() {
               onClick={() => setEditingIndex(index)}
               className="group relative aspect-[3/4] overflow-hidden border border-cream-dark"
             >
-              <Image
-                src={photo}
-                alt={`${index + 1}枚目`}
-                fill
-                className="object-cover"
-                unoptimized
-              />
+              {hasLayers ? (
+                <DoodleCanvas photoSrc={photo} layers={photoLayers[index] ?? []} />
+              ) : (
+                <Image
+                  src={photo}
+                  alt={`${index + 1}枚目`}
+                  fill
+                  className="object-cover"
+                  unoptimized
+                />
+              )}
               <div className="absolute inset-0 flex items-center justify-center bg-ink/0 transition-all group-hover:bg-ink/20 group-active:bg-ink/20">
                 <span className="bg-cream px-2 py-1 text-xs font-bold text-ink opacity-0 transition-opacity group-hover:opacity-100 group-active:opacity-100">
                   落書きする
