@@ -44,8 +44,9 @@ export function DoodleScreen() {
   }, [ws])
 
   // PC側の描画変更をPhone側に同期
-  const handleLayerChange = useCallback(
+  const handleLayersChange = useCallback(
     (layers: readonly DoodleLayer[]) => {
+      setPhotoLayers((prev) => ({ ...prev, [currentPhotoIndex]: layers }))
       if (!roomId) return
       send('shooting_sync', {
         roomId,
@@ -60,9 +61,9 @@ export function DoodleScreen() {
   const handleSave = useCallback(
     (layers: readonly DoodleLayer[]) => {
       setPhotoLayers((prev) => ({ ...prev, [currentPhotoIndex]: layers }))
-      handleLayerChange(layers)
+      handleLayersChange(layers)
     },
-    [currentPhotoIndex, handleLayerChange],
+    [currentPhotoIndex, handleLayersChange],
   )
 
   const handleCancel = useCallback(() => {
@@ -71,7 +72,6 @@ export function DoodleScreen() {
 
   const currentPhoto = previewPhotos[currentPhotoIndex] ?? ''
 
-  // 写真がまだ届いていない場合
   if (previewPhotos.length === 0) {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center px-8">
@@ -93,7 +93,6 @@ export function DoodleScreen() {
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center px-4">
       <div className="w-full max-w-lg">
-        {/* 写真選択タブ */}
         {previewPhotos.length > 1 && (
           <div className="mb-3 flex justify-center gap-2">
             {previewPhotos.map((_, index) => (
@@ -113,14 +112,12 @@ export function DoodleScreen() {
           </div>
         )}
 
-        {/* スマホと同じDoodleEditorコンポーネント */}
         <DoodleEditor
           photoSrc={currentPhoto}
+          layers={photoLayers[currentPhotoIndex] ?? []}
+          onLayersChange={handleLayersChange}
           onSave={handleSave}
           onCancel={handleCancel}
-          onLayerChange={handleLayerChange}
-          initialLayers={photoLayers[currentPhotoIndex] ?? []}
-          externalLayers={photoLayers[currentPhotoIndex]}
         />
       </div>
     </div>

@@ -14,10 +14,6 @@ import { useRoomStore } from '@/stores/room-store'
 import { useSessionStore } from '@/stores/session-store'
 import { useWsStore } from '@/stores/ws-store'
 
-function getProcessingPath(sessionId: string | null): string {
-  return `/processing/${sessionId ?? 'demo'}`
-}
-
 export default function DoodlePage() {
   const router = useRouter()
   const { photos, replacePhoto, sessionId } = useSessionStore()
@@ -53,6 +49,23 @@ export default function DoodlePage() {
     return () => ws.removeEventListener('message', handler)
   }, [ws])
 
+  // レイヤー変更をPCに同期 + ローカルstate更新
+  const handleLayersChange = useCallback(
+    (layers: readonly DoodleLayer[]) => {
+      if (editingIndex === null) return
+      setPhotoLayers((prev) => ({ ...prev, [editingIndex]: layers }))
+      if (roomId) {
+        send('shooting_sync', {
+          roomId,
+          event: 'doodle_sync',
+          photoIndex: editingIndex,
+          layers: JSON.stringify(layers),
+        })
+      }
+    },
+    [editingIndex, roomId, send],
+  )
+
   const handleSave = useCallback(
     (layers: readonly DoodleLayer[]) => {
       if (editingIndex === null) return
@@ -75,26 +88,11 @@ export default function DoodlePage() {
       photoIndex: editingIndex,
       layers: JSON.stringify(photoLayers[editingIndex] ?? []),
     })
-  }, [editingIndex, roomId, send, photoLayers])
-
-  // レイヤー変更時にPC側へ同期
-  const handleLayerChange = useCallback(
-    (layers: readonly DoodleLayer[]) => {
-      if (!roomId || editingIndex === null) return
-      send('shooting_sync', {
-        roomId,
-        event: 'doodle_sync',
-        photoIndex: editingIndex,
-        layers: JSON.stringify(layers),
-      })
-    },
-    [roomId, editingIndex, send],
-  )
+  }, [editingIndex]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDone = useCallback(async () => {
     setIsCompositing(true)
     try {
-      // Composite all doodle layers onto their respective photos
       const compositePromises = Object.entries(photoLayers).map(
         async ([indexStr, layers]) => {
           const index = parseInt(indexStr, 10)
@@ -108,10 +106,10 @@ export default function DoodlePage() {
 
       await Promise.all(compositePromises)
     } catch {
-      // If compositing fails, proceed without compositing
+      // compositing失敗時もそのまま進む
     }
     const resolvedSessionId = sessionId ?? roomSessionId
-    router.push(getProcessingPath(resolvedSessionId))
+    router.push(`/processing/${resolvedSessionId ?? 'demo'}`)
   }, [photoLayers, photos, replacePhoto, router, sessionId, roomSessionId])
 
   if (photos.length === 0) {
@@ -127,11 +125,10 @@ export default function DoodlePage() {
     return (
       <DoodleEditor
         photoSrc={photo}
+        layers={photoLayers[editingIndex] ?? []}
+        onLayersChange={handleLayersChange}
         onSave={handleSave}
         onCancel={handleCancel}
-        onLayerChange={handleLayerChange}
-        initialLayers={photoLayers[editingIndex] ?? []}
-        externalLayers={photoLayers[editingIndex]}
       />
     )
   }
@@ -140,7 +137,7 @@ export default function DoodlePage() {
   return (
     <PageContainer className="flex flex-col gap-6">
       <header>
-        <p className="receipt-text text-[10px] tracking-[0.3em] text-ink-light">STEP 04</p>
+        <p className="receipt-text text-[10px] tracking-[0.3em] text-ink-light">STEP 03</p>
         <h1 className="mt-1 text-xl font-bold tracking-tight">落書きしよう</h1>
         <p className="mt-0.5 text-xs text-ink-light">写真をタップして落書きできるよ</p>
       </header>
@@ -184,14 +181,6 @@ export default function DoodlePage() {
         <Button size="lg" className="w-full" onClick={handleDone} disabled={isCompositing}>
           {isCompositing ? '処理中...' : 'OK! 印刷する'}
         </Button>
-
-        <button
-          type="button"
-          onClick={() => router.push('/preview')}
-          className="text-center text-sm text-ink-light"
-        >
-          戻る
-        </button>
       </div>
     </PageContainer>
   )
